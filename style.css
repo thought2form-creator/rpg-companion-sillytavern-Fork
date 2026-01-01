@@ -8864,9 +8864,14 @@ body[data-theme="cyberpunk"] .rpg-music-widget-play {
     background: #1a1a2e !important;
     background-color: #1a1a2e !important;
     border: 1px solid #444 !important;
+    border-style: solid !important;
     border-radius: 4px !important;
     padding: 4px !important;
     color: #ffffff !important;
+    color-scheme: dark !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
 }
 
 /* Character editor name input - force dark theme */
@@ -8879,11 +8884,16 @@ body[data-theme="cyberpunk"] .rpg-music-widget-play {
     background: #1a1a2e !important;
     background-color: #1a1a2e !important;
     border: 1px solid #444 !important;
+    border-style: solid !important;
     border-radius: 4px !important;
     padding: 8px !important;
     color: #ffffff !important;
     font-weight: 600 !important;
     font-size: 16px !important;
+    color-scheme: dark !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
 }
 
 .rpg-char-editor-actions {
@@ -8957,10 +8967,15 @@ body[data-theme="cyberpunk"] .rpg-music-widget-play {
     background: #1a1a2e !important;
     background-color: #1a1a2e !important;
     border: 1px solid #444 !important;
+    border-style: solid !important;
     border-radius: 4px !important;
     padding: 6px 10px !important;
     color: #ffffff !important;
     font-family: inherit !important;
+    color-scheme: dark !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
 }
 
 /* Placeholder text color */
@@ -9041,10 +9056,15 @@ body[data-theme="cyberpunk"] .rpg-music-widget-play {
     background: #1a1a2e !important;
     background-color: #1a1a2e !important;
     border: 1px solid #444 !important;
+    border-style: solid !important;
     border-radius: 4px !important;
     padding: 4px 8px !important;
     color: #ffffff !important;
     text-align: center !important;
+    color-scheme: dark !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
 }
 
 .rpg-char-editor-thoughts {
@@ -9080,6 +9100,12 @@ body[data-theme="cyberpunk"] .rpg-music-widget-play {
     background: var(--rpg-highlight);
 }
 
+/* Character Editor Modal - Force dark color scheme */
+#rpg-character-editor-modal,
+#rpg-character-editor-modal * {
+    color-scheme: dark !important;
+}
+
 /* Character Editor Modal - Force all inputs and buttons to dark theme */
 #rpg-character-editor-modal input[type="text"],
 #rpg-character-editor-modal input[type="number"],
@@ -9088,7 +9114,12 @@ body[data-theme="cyberpunk"] .rpg-music-widget-play {
     background: #1a1a2e !important;
     background-color: #1a1a2e !important;
     border: 1px solid #444 !important;
+    border-style: solid !important;
     color: #ffffff !important;
+    color-scheme: dark !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
 }
 
 #rpg-character-editor-modal input::placeholder,
@@ -9101,7 +9132,9 @@ body[data-theme="cyberpunk"] .rpg-music-widget-play {
     background: #2a2a3e !important;
     background-color: #2a2a3e !important;
     border: 1px solid #444 !important;
+    border-style: solid !important;
     color: #ffffff !important;
+    color-scheme: dark !important;
 }
 
 #rpg-character-editor-modal button i,
