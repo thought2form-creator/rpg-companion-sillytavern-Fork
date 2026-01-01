@@ -1700,6 +1700,9 @@ body:has(.rpg-panel.rpg-position-left) #sheld {
     flex-shrink: 0;
 }
 
+/* TODO: !important flags added to prevent character card stacking bug
+ * See src/systems/ui/characterEditor.js forceLayoutRefresh() for details
+ * These flags ensure flex layout cannot be overridden during avatar loading */
 .rpg-thoughts-content {
     position: relative;
     padding: 0.5em;
@@ -1838,7 +1841,9 @@ body:has(.rpg-panel.rpg-position-left) #sheld {
     line-height: 1.4;
 }
 
-/* Present Characters - Character Cards */
+/* Present Characters - Character Cards
+ * TODO: !important flags added to prevent character card stacking bug
+ * These ensure cards always take full width and cannot stack horizontally */
 .rpg-character-card {
     display: flex !important; /* Force flex display */
     flex-direction: row !important; /* Force row layout for card internals */

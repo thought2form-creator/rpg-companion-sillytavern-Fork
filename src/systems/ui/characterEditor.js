@@ -24,6 +24,38 @@ let savedCharacterStates = {};
 /**
  * Forces a layout refresh to fix character card stacking issues
  * This is needed after modals are removed from the DOM
+ *
+ * TODO: KNOWN ISSUE - Character Card Stacking Bug
+ * ================================================
+ * SYMPTOMS:
+ * - Character cards occasionally stack horizontally (side-by-side) instead of vertically
+ * - Only occurs when regenerating a field on the FIRST character in the list
+ * - Only happens when that character has an avatar that loads from the character library
+ * - Does NOT occur with manual edits, second+ characters, or characters without avatars
+ * - Not consistently reproducible - seems timing-dependent
+ *
+ * ROOT CAUSE (suspected):
+ * - Race condition between avatar image loading and flex layout calculation
+ * - When the first character's avatar loads from library, the image load event may
+ *   trigger a layout recalculation that interferes with the flex-direction: column
+ * - The timing changes when multiple characters have avatars (explains why adding
+ *   another character with an avatar prevents the bug)
+ *
+ * POTENTIAL FIXES TO INVESTIGATE:
+ * 1. Add image.onload event handlers in getCharacterAvatar() that trigger layout reflow
+ * 2. Use CSS contain property to isolate character card layouts
+ * 3. Defer rendering until all avatar images have loaded (Promise.all approach)
+ * 4. Add MutationObserver to detect layout changes and force correction
+ * 5. Investigate if SillyTavern's thumbnail loading has completion callbacks we can use
+ *
+ * CURRENT MITIGATIONS:
+ * - CSS hardening with !important flags on flex properties (style.css lines 1703-1861)
+ * - Single render after modal close (prevents double-render race condition)
+ * - forceLayoutRefresh() helper to manually trigger reflow when needed
+ *
+ * RELATED FILES:
+ * - src/systems/rendering/thoughts.js (getCharacterAvatar, renderThoughts)
+ * - style.css (.rpg-thoughts-content, .rpg-character-card)
  */
 function forceLayoutRefresh() {
     const $thoughtsContent = $('.rpg-thoughts-content');

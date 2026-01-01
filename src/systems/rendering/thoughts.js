@@ -107,6 +107,12 @@ function namesMatch(cardName, aiName) {
  * Gets the avatar URL for a character, checking custom NPC avatars first
  * @param {string} characterName - Name of the character
  * @returns {string} Avatar URL or fallback
+ *
+ * TODO: This function may be involved in the character card stacking bug
+ * When avatars are loaded from the character library (via getSafeThumbnailUrl),
+ * the image loading timing can cause a race condition with flex layout calculation.
+ * See detailed notes in src/systems/ui/characterEditor.js forceLayoutRefresh()
+ * Potential fix: Add image preloading or onload callbacks to ensure layout stability
  */
 function getCharacterAvatar(characterName) {
     // First, check if there's a custom NPC avatar
