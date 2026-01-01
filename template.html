@@ -816,6 +816,110 @@
                     <i class="fa-solid fa-rotate-left"></i> Restore Default
                 </button>
             </div>
+
+            <!-- Divider -->
+            <hr style="margin: 24px 0; border: none; border-top: 1px solid rgba(255,255,255,0.1);">
+
+            <!-- Per-Section Prompts & Regeneration Settings -->
+            <h4 style="margin-bottom: 16px;">
+                <i class="fa-solid fa-layer-group"></i> Per-Section Prompts & Regeneration Settings
+            </h4>
+            <small class="notes" style="display: block; margin-bottom: 16px;">
+                <i class="fa-solid fa-info-circle"></i> Customize prompts and regeneration settings for each tracker section. These settings only apply when using the regenerate button, not during normal tracker updates.
+            </small>
+
+            <!-- User Stats Section -->
+            <div class="rpg-prompt-editor-section" style="border: 1px solid rgba(255,255,255,0.1); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                <h5 style="margin-bottom: 12px;">
+                    <i class="fa-solid fa-heart-pulse"></i> User Stats
+                </h5>
+
+                <small style="display: block; margin-bottom: 8px; color: #888; font-size: 11px;">
+                    Additional instructions for generating User Stats. Leave empty to use default behavior.
+                </small>
+                <textarea id="rpg-prompt-user-stats" class="rpg-prompt-textarea" rows="3" placeholder="e.g., Focus on realistic stat changes based on time passed..."></textarea>
+
+                <div style="display: flex; gap: 16px; margin-top: 12px;">
+                    <div style="flex: 1;">
+                        <label for="rpg-user-stats-max-tokens" style="display: block; margin-bottom: 8px; font-weight: 600;">
+                            Max Tokens
+                        </label>
+                        <input type="number" id="rpg-user-stats-max-tokens" class="text_pole" min="100" max="2048" step="50" value="500" style="width: 120px;" />
+                    </div>
+                    <div style="flex: 2;">
+                        <label for="rpg-user-stats-stop-sequences" style="display: block; margin-bottom: 8px; font-weight: 600;">
+                            Stop Sequences (one per line)
+                        </label>
+                        <textarea id="rpg-user-stats-stop-sequences" class="rpg-prompt-textarea" rows="3" placeholder="\n\n---&#10;\n\nThe &#10;\n\nAs "></textarea>
+                    </div>
+                </div>
+
+                <button class="menu_button rpg-restore-section-btn" data-section="userStats" style="margin-top: 8px;">
+                    <i class="fa-solid fa-rotate-left"></i> Restore User Stats Defaults
+                </button>
+            </div>
+
+            <!-- Environment Box Section -->
+            <div class="rpg-prompt-editor-section" style="border: 1px solid rgba(255,255,255,0.1); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                <h5 style="margin-bottom: 12px;">
+                    <i class="fa-solid fa-info-circle"></i> Environment Box
+                </h5>
+
+                <small style="display: block; margin-bottom: 8px; color: #888; font-size: 11px;">
+                    Additional instructions for generating Environment Box. Leave empty to use default behavior.
+                </small>
+                <textarea id="rpg-prompt-info-box" class="rpg-prompt-textarea" rows="3" placeholder="e.g., Keep location descriptions concise..."></textarea>
+
+                <div style="display: flex; gap: 16px; margin-top: 12px;">
+                    <div style="flex: 1;">
+                        <label for="rpg-info-box-max-tokens" style="display: block; margin-bottom: 8px; font-weight: 600;">
+                            Max Tokens
+                        </label>
+                        <input type="number" id="rpg-info-box-max-tokens" class="text_pole" min="100" max="2048" step="50" value="300" style="width: 120px;" />
+                    </div>
+                    <div style="flex: 2;">
+                        <label for="rpg-info-box-stop-sequences" style="display: block; margin-bottom: 8px; font-weight: 600;">
+                            Stop Sequences (one per line)
+                        </label>
+                        <textarea id="rpg-info-box-stop-sequences" class="rpg-prompt-textarea" rows="3" placeholder="\n\n---&#10;\n\nThe &#10;\n\nAs "></textarea>
+                    </div>
+                </div>
+
+                <button class="menu_button rpg-restore-section-btn" data-section="infoBox" style="margin-top: 8px;">
+                    <i class="fa-solid fa-rotate-left"></i> Restore Environment Box Defaults
+                </button>
+            </div>
+
+            <!-- Present Characters Section -->
+            <div class="rpg-prompt-editor-section" style="border: 1px solid rgba(255,255,255,0.1); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                <h5 style="margin-bottom: 12px;">
+                    <i class="fa-solid fa-users"></i> Present Characters
+                </h5>
+
+                <small style="display: block; margin-bottom: 8px; color: #888; font-size: 11px;">
+                    Additional instructions for generating Present Characters. Leave empty to use default behavior.
+                </small>
+                <textarea id="rpg-prompt-character-thoughts" class="rpg-prompt-textarea" rows="3" placeholder="e.g., Focus on emotional depth and character motivations..."></textarea>
+
+                <div style="display: flex; gap: 16px; margin-top: 12px;">
+                    <div style="flex: 1;">
+                        <label for="rpg-character-thoughts-max-tokens" style="display: block; margin-bottom: 8px; font-weight: 600;">
+                            Max Tokens
+                        </label>
+                        <input type="number" id="rpg-character-thoughts-max-tokens" class="text_pole" min="100" max="2048" step="50" value="1000" style="width: 120px;" />
+                    </div>
+                    <div style="flex: 2;">
+                        <label for="rpg-character-thoughts-stop-sequences" style="display: block; margin-bottom: 8px; font-weight: 600;">
+                            Stop Sequences (one per line)
+                        </label>
+                        <textarea id="rpg-character-thoughts-stop-sequences" class="rpg-prompt-textarea" rows="3" placeholder="\n\n---&#10;\n\nThe &#10;\n\nAs "></textarea>
+                    </div>
+                </div>
+
+                <button class="menu_button rpg-restore-section-btn" data-section="characterThoughts" style="margin-top: 8px;">
+                    <i class="fa-solid fa-rotate-left"></i> Restore Present Characters Defaults
+                </button>
+            </div>
         </div>
 
         <footer class="rpg-settings-popup-footer">

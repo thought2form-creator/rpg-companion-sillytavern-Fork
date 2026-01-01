@@ -35,6 +35,25 @@ export let extensionSettings = {
     enablePlotButtons: true, // Show plot progression buttons above chat input
     saveTrackerHistory: false, // Save tracker data in chat history for each message
     panelPosition: 'right', // 'left', 'right', or 'top'
+    // Per-section custom prompts for regeneration
+    customUserStatsPrompt: '', // Custom prompt for User Stats section (empty = use default)
+    customInfoBoxPrompt: '', // Custom prompt for Info Box section (empty = use default)
+    customCharacterThoughtsPrompt: '', // Custom prompt for Character Thoughts section (empty = use default)
+    // Per-section regeneration settings (max tokens and stop sequences)
+    sectionRegenerationSettings: {
+        userStats: {
+            maxTokens: 500,
+            stopSequences: ['\n\n---', '\n\nThe ', '\n\nAs ', '\n\nSuddenly', '\n\n*', 'Here is', 'I hope']
+        },
+        infoBox: {
+            maxTokens: 300,
+            stopSequences: ['\n\n---', '\n\nThe ', '\n\nAs ', '\n\nSuddenly', '\n\n*', 'Here is', 'I hope']
+        },
+        characterThoughts: {
+            maxTokens: 1000,
+            stopSequences: ['\n\n---', '\n\nThe ', '\n\nAs ', '\n\nSuddenly', '\n\n*', '\n\nMeanwhile', 'Here is', 'I hope']
+        }
+    },
     theme: 'default', // Theme: default, sci-fi, fantasy, cyberpunk, custom
     customColors: {
         bg: '#1a1a2e',

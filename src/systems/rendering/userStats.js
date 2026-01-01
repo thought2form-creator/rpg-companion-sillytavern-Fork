@@ -116,7 +116,24 @@ export function renderUserStats() {
     // Create gradient from low to high color
     const gradient = `linear-gradient(to right, ${extensionSettings.statBarColorLow}, ${extensionSettings.statBarColorHigh})`;
 
-    let html = '<div class="rpg-stats-content"><div class="rpg-stats-left">';
+    let html = '';
+
+    // Add section header with regenerate buttons
+    html += `
+        <div class="rpg-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h4 style="margin: 0;">${userName}'s Stats</h4>
+            <div style="display: flex; gap: 4px;">
+                <button id="rpg-regenerate-user-stats" class="rpg-btn-icon" title="Regenerate User Stats" style="padding: 4px 8px; font-size: 14px;">
+                    <i class="fa-solid fa-rotate"></i>
+                </button>
+                <button id="rpg-regenerate-user-stats-guided" class="rpg-btn-icon" title="Regenerate with Guidance" style="padding: 4px 8px; font-size: 14px;">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+            </div>
+        </div>
+    `;
+
+    html += '<div class="rpg-stats-content"><div class="rpg-stats-left">';
 
     // User info row
     html += `
@@ -357,6 +374,32 @@ export function renderUserStats() {
         if (e.key === 'Enter') {
             e.preventDefault();
             $(this).blur();
+        }
+    });
+
+    // Add event listener for quick regenerate button (no guidance)
+    $('#rpg-regenerate-user-stats').off('click').on('click', async function() {
+        try {
+            const { regenerateTrackerSectionDirect } = await import('../ui/trackerRegeneration.js');
+            toastr.info('Regenerating User Stats...', 'RPG Companion', { timeOut: 0, extendedTimeOut: 0 });
+            await regenerateTrackerSectionDirect('userStats', '');
+            toastr.clear();
+            toastr.success('User Stats regenerated successfully!', 'RPG Companion');
+        } catch (error) {
+            toastr.clear();
+            console.error('[RPG Companion] Failed to regenerate:', error);
+            toastr.error('Failed to regenerate: ' + error.message, 'RPG Companion');
+        }
+    });
+
+    // Add event listener for guided regenerate button (with guidance dialog)
+    $('#rpg-regenerate-user-stats-guided').off('click').on('click', async function() {
+        try {
+            const { showTrackerRegenerationDialog } = await import('../ui/trackerRegeneration.js');
+            showTrackerRegenerationDialog('userStats');
+        } catch (error) {
+            console.error('[RPG Companion] Failed to load tracker regeneration module:', error);
+            toastr.error('Failed to open regeneration dialog: ' + error.message, 'RPG Companion');
         }
     });
 }

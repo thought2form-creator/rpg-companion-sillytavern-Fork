@@ -1,0 +1,340 @@
+/**
+ * Tracker Section Regeneration Module
+ * Provides functionality to regenerate individual tracker sections with optional guidance
+ */
+
+import { extensionSettings, committedTrackerData, lastGeneratedData } from '../../core/state.js';
+import { generateWithExternalAPI } from '../generation/apiClient.js';
+import { generateSeparateUpdatePrompt, generateRPGPromptText, generateTrackerInstructions } from '../generation/promptBuilder.js';
+import { getContext } from '../../../../../../extensions.js';
+
+const { generateRaw } = SillyTavern.getContext();
+
+/**
+ * Builds prompt for regenerating User Stats section
+ * @param {string} guidance - Optional user guidance
+ * @returns {Promise<Array>} Message array for generateRaw
+ */
+export async function buildUserStatsRegenerationPrompt(guidance) {
+    const messages = await generateSeparateUpdatePrompt('userStats');
+
+    // Add user guidance if provided
+    if (guidance && guidance.trim()) {
+        const lastMessage = messages[messages.length - 1];
+        lastMessage.content = `User guidance: ${guidance.trim()}\n\n` + lastMessage.content;
+    }
+
+    return messages;
+}
+
+/**
+ * Builds prompt for regenerating Info Box section
+ * @param {string} guidance - Optional user guidance
+ * @returns {Promise<Array>} Message array for generateRaw
+ */
+export async function buildInfoBoxRegenerationPrompt(guidance) {
+    const messages = await generateSeparateUpdatePrompt('infoBox');
+
+    // Add user guidance if provided
+    if (guidance && guidance.trim()) {
+        const lastMessage = messages[messages.length - 1];
+        lastMessage.content = `User guidance: ${guidance.trim()}\n\n` + lastMessage.content;
+    }
+
+    return messages;
+}
+
+/**
+ * Builds prompt for regenerating Present Characters section
+ * @param {string} guidance - Optional user guidance
+ * @returns {Promise<Array>} Message array for generateRaw
+ */
+export async function buildPresentCharactersRegenerationPrompt(guidance) {
+    const messages = await generateSeparateUpdatePrompt('characterThoughts');
+
+    // Add user guidance if provided
+    if (guidance && guidance.trim()) {
+        const lastMessage = messages[messages.length - 1];
+        lastMessage.content = `User guidance: ${guidance.trim()}\n\n` + lastMessage.content;
+    }
+
+    return messages;
+}
+
+/**
+ * Default per-section regeneration settings (fallback if not configured)
+ */
+const DEFAULT_SECTION_SETTINGS = {
+    userStats: {
+        maxTokens: 500,
+        stopSequences: ['###TRACKER_END###', '\n\n---', '\n\nThe ', '\n\nAs ', '\n\nSuddenly', '\n\n*', 'Here is', 'I hope']
+    },
+    infoBox: {
+        maxTokens: 300,
+        stopSequences: ['###TRACKER_END###', '\n\n---', '\n\nThe ', '\n\nAs ', '\n\nSuddenly', '\n\n*', 'Here is', 'I hope']
+    },
+    characterThoughts: {
+        maxTokens: 1000,
+        stopSequences: ['###TRACKER_END###', '\n\n---', '\n\nThe ', '\n\nAs ', '\n\nSuddenly', '\n\n*', '\n\nMeanwhile', 'Here is', 'I hope']
+    }
+};
+
+/**
+ * Calls the LLM to generate tracker section data
+ * @param {Array} messages - Message array for the LLM
+ * @param {string} section - Section being regenerated ('userStats', 'infoBox', 'characterThoughts')
+ * @returns {Promise<string>} The LLM response
+ */
+export async function callLLMForTrackerGeneration(messages, section) {
+    const isExternalMode = extensionSettings.generationMode === 'external';
+
+    // Get per-section settings (with fallback to defaults)
+    const sectionSettings = extensionSettings.sectionRegenerationSettings?.[section] || DEFAULT_SECTION_SETTINGS[section];
+    const maxTokens = sectionSettings?.maxTokens || DEFAULT_SECTION_SETTINGS[section].maxTokens;
+    const stopSequences = sectionSettings?.stopSequences || DEFAULT_SECTION_SETTINGS[section].stopSequences;
+
+    try {
+        let response;
+
+        if (isExternalMode) {
+            // Use external API with per-section stop sequences and max_tokens
+            response = await generateWithExternalAPI(messages, {
+                maxTokens: maxTokens,
+                stop: stopSequences
+            });
+        } else {
+            // Use SillyTavern's internal generation with message array format
+            // Match the exact parameters used by the main tracker update (apiClient.js)
+            // to avoid triggering additional context injection
+            response = await generateRaw({
+                prompt: messages,
+                quietToLoud: false,
+                max_length: maxTokens,     // Limit output length (per-section)
+                stop_sequence: stopSequences  // Stop sequences (per-section)
+            });
+        }
+
+        return response;
+    } catch (error) {
+        console.error('[RPG Companion] Tracker regeneration failed:', error);
+        throw error;
+    }
+}
+
+/**
+ * Parses the LLM response for tracker section regeneration
+ * Cleans up markdown code blocks and extra formatting
+ * @param {string} response - Raw LLM response
+ * @returns {string} Cleaned tracker data
+ */
+export function parseTrackerRegenerationResponse(response) {
+    if (!response) {
+        return '';
+    }
+
+    let cleaned = response.trim();
+
+    // Remove markdown code blocks
+    cleaned = cleaned.replace(/```[a-z]*\n?/gi, '');
+    cleaned = cleaned.replace(/```\n?/g, '');
+
+    // Remove XML tags if present
+    cleaned = cleaned.replace(/<\/?trackers>/gi, '');
+
+    // Remove end-of-generation marker if present
+    cleaned = cleaned.replace(/###TRACKER_END###/gi, '');
+
+    // Clean up extra whitespace
+    cleaned = cleaned.trim();
+
+    return cleaned;
+}
+
+/**
+ * Shows a dialog to regenerate a tracker section with optional guidance
+ * @param {string} sectionType - Type of section: 'userStats', 'infoBox', or 'presentCharacters'
+ */
+export async function showTrackerRegenerationDialog(sectionType) {
+    const sectionNames = {
+        userStats: 'User Stats',
+        infoBox: 'Info Box',
+        presentCharacters: 'Present Characters'
+    };
+
+    const sectionName = sectionNames[sectionType] || sectionType;
+
+    // Create simple guidance dialog
+    const dialogHtml = `
+        <div id="rpg-tracker-regen-dialog" class="rpg-modal-overlay">
+            <div class="rpg-modal-content" style="max-width: 450px;">
+                <div class="rpg-modal-header">
+                    <h3>Regenerate ${sectionName} with Guidance</h3>
+                    <button class="rpg-modal-close" id="rpg-tracker-regen-close">×</button>
+                </div>
+                <div class="rpg-modal-body">
+                    <p style="margin-bottom: 12px;">Provide guidance for the AI:</p>
+                    <textarea id="rpg-tracker-regen-guidance" class="rpg-textarea" rows="4" placeholder="e.g., Make it nighttime, add rain, increase health to 80%, etc."></textarea>
+                    <div style="margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end;">
+                        <button id="rpg-tracker-regen-cancel" class="rpg-btn-secondary">Cancel</button>
+                        <button id="rpg-tracker-regen-confirm" class="rpg-btn-primary">
+                            <i class="fa-solid fa-rotate"></i> Regenerate
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove existing dialog if any
+    $('#rpg-tracker-regen-dialog').remove();
+
+    // Add dialog to page
+    $('body').append(dialogHtml);
+
+    // Close button
+    $('#rpg-tracker-regen-close, #rpg-tracker-regen-cancel').on('click', function() {
+        $('#rpg-tracker-regen-dialog').remove();
+    });
+
+    // "Regenerate" button (with guidance)
+    $('#rpg-tracker-regen-confirm').on('click', async function() {
+        const guidance = $('#rpg-tracker-regen-guidance').val().trim();
+        $('#rpg-tracker-regen-dialog').remove();
+
+        // Show loading toast
+        toastr.info(`Regenerating ${sectionName}...`, 'RPG Companion', { timeOut: 0, extendedTimeOut: 0 });
+
+        try {
+            await regenerateTrackerSectionDirect(sectionType, guidance);
+            toastr.clear();
+            toastr.success(`${sectionName} regenerated successfully!`, 'RPG Companion');
+        } catch (error) {
+            toastr.clear();
+            toastr.error(`Failed to regenerate ${sectionName}: ${error.message}`, 'RPG Companion');
+            console.error('[RPG Companion] Tracker regeneration error:', error);
+        }
+    });
+
+    // Close on overlay click
+    $('#rpg-tracker-regen-dialog').on('click', function(e) {
+        if (e.target.id === 'rpg-tracker-regen-dialog') {
+            $('#rpg-tracker-regen-dialog').remove();
+        }
+    });
+
+    // Focus on textarea
+    $('#rpg-tracker-regen-guidance').focus();
+}
+
+/**
+ * Regenerates a tracker section using the LLM (exported for direct use)
+ * @param {string} sectionType - Type of section: 'userStats', 'infoBox', or 'presentCharacters'
+ * @param {string} guidance - Optional user guidance
+ */
+export async function regenerateTrackerSectionDirect(sectionType, guidance) {
+    // Import rendering functions
+    const { renderUserStats } = await import('../rendering/userStats.js');
+    const { renderInfoBox } = await import('../rendering/infoBox.js');
+    const { renderThoughts } = await import('../rendering/thoughts.js');
+    const { saveChatData, updateMessageSwipeData } = await import('../../core/persistence.js');
+
+    // Build prompt based on section type
+    let prompt;
+    switch (sectionType) {
+        case 'userStats':
+            prompt = await buildUserStatsRegenerationPrompt(guidance);
+            break;
+        case 'infoBox':
+            prompt = await buildInfoBoxRegenerationPrompt(guidance);
+            break;
+        case 'presentCharacters':
+            prompt = await buildPresentCharactersRegenerationPrompt(guidance);
+            break;
+        default:
+            throw new Error(`Unknown section type: ${sectionType}`);
+    }
+
+    console.log('[RPG Companion] Regenerating tracker section:', sectionType);
+    console.log('[RPG Companion] Prompt:', prompt);
+
+    // Map sectionType to section name for settings lookup
+    const sectionMap = {
+        'userStats': 'userStats',
+        'infoBox': 'infoBox',
+        'presentCharacters': 'characterThoughts'
+    };
+    const section = sectionMap[sectionType];
+
+    // Call LLM with per-section settings
+    const response = await callLLMForTrackerGeneration(prompt, section);
+    console.log('[RPG Companion] LLM Response:', response);
+
+    // Validate response
+    if (!response || typeof response !== 'string' || response.trim().length === 0) {
+        throw new Error('LLM returned an empty or invalid response');
+    }
+
+    // Parse response
+    const cleanedData = parseTrackerRegenerationResponse(response);
+    console.log('[RPG Companion] Cleaned data:', cleanedData);
+
+    // Validate cleaned data
+    if (!cleanedData || cleanedData.trim().length === 0) {
+        throw new Error('LLM response could not be parsed into valid tracker data');
+    }
+
+    // Additional validation based on section type
+    const sectionNames = {
+        userStats: 'User Stats',
+        infoBox: 'Info Box',
+        presentCharacters: 'Present Characters'
+    };
+
+    if (sectionType === 'userStats' && !cleanedData.includes(':')) {
+        throw new Error(`${sectionNames[sectionType]} data appears to be invalid - no stat fields found`);
+    }
+
+    if (sectionType === 'infoBox' && !cleanedData.includes(':')) {
+        throw new Error(`${sectionNames[sectionType]} data appears to be invalid - no info fields found`);
+    }
+
+    if (sectionType === 'presentCharacters' && !cleanedData.includes('Present Characters')) {
+        throw new Error(`${sectionNames[sectionType]} data appears to be invalid - missing header`);
+    }
+
+    // Update the appropriate data
+    switch (sectionType) {
+        case 'userStats':
+            lastGeneratedData.userStats = cleanedData;
+            committedTrackerData.userStats = cleanedData;
+            break;
+        case 'infoBox':
+            lastGeneratedData.infoBox = cleanedData;
+            committedTrackerData.infoBox = cleanedData;
+            break;
+        case 'presentCharacters':
+            lastGeneratedData.characterThoughts = cleanedData;
+            committedTrackerData.characterThoughts = cleanedData;
+            break;
+    }
+
+    // Save to chat metadata
+    saveChatData();
+    updateMessageSwipeData();
+
+    // Re-render the appropriate section
+    switch (sectionType) {
+        case 'userStats':
+            renderUserStats();
+            break;
+        case 'infoBox':
+            renderInfoBox();
+            break;
+        case 'presentCharacters':
+            renderThoughts();
+            break;
+    }
+
+    console.log('[RPG Companion] Tracker section regenerated successfully:', sectionType);
+}
+

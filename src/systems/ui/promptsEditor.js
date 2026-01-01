@@ -34,7 +34,26 @@ const DEFAULT_PROMPTS = {
     Output only the final, modified prompt; do not output anything else.`,
     trackerInstructions: 'Replace X with actual numbers (e.g., 69) and replace all [placeholders] with concrete in-world details that {userName} perceives about the current scene and the present characters. Do NOT keep the brackets or placeholder text in your response. For example: [Location] becomes Forest Clearing, [Mood Emoji] becomes 😊. Consider the last trackers in the conversation (if they exist). Manage them accordingly and realistically; raise, lower, change, or keep the values unchanged based on the user\'s actions, the passage of time, and logical consequences (0% if the time progressed only by a few minutes, 1-5% normally, and above 5% only if a major time-skip/event occurs).',
     trackerContinuation: 'After updating the trackers, continue directly from where the last message in the chat history left off. Ensure the trackers you provide naturally reflect and influence the narrative. Character behavior, dialogue, and story events should acknowledge these conditions when relevant, such as fatigue affecting the protagonist\'s performance, low hygiene influencing their social interactions, environmental factors shaping the scene, a character\'s emotional state coloring their responses, and so on. Remember, all bracketed placeholders (e.g., [Location], [Mood Emoji]) MUST be replaced with actual content without the square brackets.',
-    combatNarrative: 'Build novel prose. Break patterns from your previous responses by varying sentence structures, rhythms, formats, and openings. Track whether a sentence shape, cadence, sensory detail, or a descriptor appeared recently, and replace it with a different one or skip it entirely. If you mentioned a physical feature, mannerism, or expression once, move on. Don\'t fixate on the same traits every turn. Well-placed humor, unconventional similes, and subverted turns of phrase are encouraged. Avoid GPTisms, purple prose, and anaphoras, especially the negatives with "no/not/wasn\'t/didn\'t." Refrain from describing actions or emotions via negation; focus on what does happen, not what doesn\'t. Absolutely no asterisks, ellipses, or em-dashes. Explicit content is allowed, no plot armor. Do not play for {userName}. Keep your response length under 150 words. Never end on handover cues; finish naturally.\nCRITICAL: Do not repeat, echo, parrot, or restate distinctive words, phrases, and dialogues from the user\'s last message. If reacting to speech, show interpretation or response, not repetition.\nEXAMPLE: "Are you a gooner?" User asks.\nBAD: "Gooner?"\nGOOD: A flat look. "What type of question is that?"'
+    combatNarrative: 'Build novel prose. Break patterns from your previous responses by varying sentence structures, rhythms, formats, and openings. Track whether a sentence shape, cadence, sensory detail, or a descriptor appeared recently, and replace it with a different one or skip it entirely. If you mentioned a physical feature, mannerism, or expression once, move on. Don\'t fixate on the same traits every turn. Well-placed humor, unconventional similes, and subverted turns of phrase are encouraged. Avoid GPTisms, purple prose, and anaphoras, especially the negatives with "no/not/wasn\'t/didn\'t." Refrain from describing actions or emotions via negation; focus on what does happen, not what doesn\'t. Absolutely no asterisks, ellipses, or em-dashes. Explicit content is allowed, no plot armor. Do not play for {userName}. Keep your response length under 150 words. Never end on handover cues; finish naturally.\nCRITICAL: Do not repeat, echo, parrot, or restate distinctive words, phrases, and dialogues from the user\'s last message. If reacting to speech, show interpretation or response, not repetition.\nEXAMPLE: "Are you a gooner?" User asks.\nBAD: "Gooner?"\nGOOD: A flat look. "What type of question is that?"',
+    userStats: 'You are updating the User Stats section based on the recent narrative. Consider the user\'s actions, time passage, and logical consequences. Manage stat values realistically: 0% change if only minutes passed, 1-5% for normal changes, above 5% only for major events or time-skips. Update mood emoji, conditions, inventory, and skills to reflect the current situation. Replace all [placeholders] with actual values - no brackets in your response. When finished, output exactly: ###TRACKER_END###',
+    infoBox: 'You are updating the Environment Box with brief, factual details about the current scene. Keep ALL fields concise:\n- Date: Just the weekday, month, and year (e.g., "Monday, June 15, 2023")\n- Weather: Single emoji + 1-2 word forecast (e.g., "☀️ Clear" or "🌧️ Light Rain")\n- Temperature: Just the number and unit (e.g., "72°F")\n- Time: Simple time range (e.g., "2:00 PM → 3:30 PM")\n- Location: Single short phrase, no descriptions (e.g., "Central Park" or "Coffee Shop Downtown")\n- Recent Events: Up to three SHORT single-line descriptors with NO details (e.g., "morning jog", "lunch with Sarah", "argument at work")\n\nDo NOT write paragraphs or elaborate descriptions. Keep everything to single lines. Replace all [placeholders] with actual brief content - no brackets in your response. When finished, output exactly: ###TRACKER_END###',
+    characterThoughts: 'You are updating the Present Characters section based on who is currently in the scene. For each character present (excluding the user), provide: name, emoji, appearance/current action, relationship type, stats (if applicable), and internal thoughts in first-person POV (2-3 sentences). Infer characters from the narrative context. If no other characters are present, state "Unavailable". Keep thoughts authentic to each character\'s personality and emotional state. Replace all [placeholders] with actual content - no brackets in your response. When finished, output exactly: ###TRACKER_END###'
+};
+
+// Default per-section regeneration settings
+const DEFAULT_SECTION_SETTINGS = {
+    userStats: {
+        maxTokens: 500,
+        stopSequences: ['###TRACKER_END###', '\n\n---', '\n\nThe ', '\n\nAs ', '\n\nSuddenly', '\n\n*', 'Here is', 'I hope']
+    },
+    infoBox: {
+        maxTokens: 300,
+        stopSequences: ['###TRACKER_END###', '\n\n---', '\n\nThe ', '\n\nAs ', '\n\nSuddenly', '\n\n*', 'Here is', 'I hope']
+    },
+    characterThoughts: {
+        maxTokens: 1000,
+        stopSequences: ['###TRACKER_END###', '\n\n---', '\n\nThe ', '\n\nAs ', '\n\nSuddenly', '\n\n*', '\n\nMeanwhile', 'Here is', 'I hope']
+    }
 };
 
 /**
@@ -78,6 +97,13 @@ export function initPromptsEditor() {
         toastr.success('Prompt restored to default');
     });
 
+    // Per-section restore buttons
+    $(document).on('click', '.rpg-restore-section-btn', function() {
+        const section = $(this).data('section');
+        restoreSectionToDefault(section);
+        toastr.success(`${section} settings restored to defaults`);
+    });
+
     // Close on background click
     $(document).on('click', '#rpg-prompts-editor-popup', function(e) {
         if (e.target.id === 'rpg-prompts-editor-popup') {
@@ -95,6 +121,10 @@ export function initPromptsEditor() {
  * Open the prompts editor modal
  */
 function openPromptsEditor() {
+    // Store defaults for restore buttons
+    window.RPG_DEFAULT_PROMPTS = DEFAULT_PROMPTS;
+    window.RPG_DEFAULT_SECTION_SETTINGS = DEFAULT_SECTION_SETTINGS;
+
     // Create temporary copy for cancel functionality
     tempPrompts = {
         html: extensionSettings.customHtmlPrompt || '',
@@ -104,7 +134,11 @@ function openPromptsEditor() {
         avatar: extensionSettings.avatarLLMCustomInstruction || '',
         trackerInstructions: extensionSettings.customTrackerInstructionsPrompt || '',
         trackerContinuation: extensionSettings.customTrackerContinuationPrompt || '',
-        combatNarrative: extensionSettings.customCombatNarrativePrompt || ''
+        combatNarrative: extensionSettings.customCombatNarrativePrompt || '',
+        userStats: extensionSettings.customUserStatsPrompt || '',
+        infoBox: extensionSettings.customInfoBoxPrompt || '',
+        characterThoughts: extensionSettings.customCharacterThoughtsPrompt || '',
+        sectionRegenerationSettings: JSON.parse(JSON.stringify(extensionSettings.sectionRegenerationSettings || DEFAULT_SECTION_SETTINGS))
     };
 
     // Load current values or defaults
@@ -116,6 +150,26 @@ function openPromptsEditor() {
     $('#rpg-prompt-tracker-instructions').val(extensionSettings.customTrackerInstructionsPrompt || DEFAULT_PROMPTS.trackerInstructions);
     $('#rpg-prompt-tracker-continuation').val(extensionSettings.customTrackerContinuationPrompt || DEFAULT_PROMPTS.trackerContinuation);
     $('#rpg-prompt-combat-narrative').val(extensionSettings.customCombatNarrativePrompt || DEFAULT_PROMPTS.combatNarrative);
+
+    // Load per-section prompts (prefill with defaults if empty)
+    $('#rpg-prompt-user-stats').val(extensionSettings.customUserStatsPrompt || DEFAULT_PROMPTS.userStats);
+    $('#rpg-prompt-info-box').val(extensionSettings.customInfoBoxPrompt || DEFAULT_PROMPTS.infoBox);
+    $('#rpg-prompt-character-thoughts').val(extensionSettings.customCharacterThoughtsPrompt || DEFAULT_PROMPTS.characterThoughts);
+
+    // Load per-section regeneration settings
+    const sectionSettings = extensionSettings.sectionRegenerationSettings || DEFAULT_SECTION_SETTINGS;
+
+    // User Stats
+    $('#rpg-user-stats-max-tokens').val(sectionSettings.userStats?.maxTokens || DEFAULT_SECTION_SETTINGS.userStats.maxTokens);
+    $('#rpg-user-stats-stop-sequences').val((sectionSettings.userStats?.stopSequences || DEFAULT_SECTION_SETTINGS.userStats.stopSequences).join('\n'));
+
+    // Info Box
+    $('#rpg-info-box-max-tokens').val(sectionSettings.infoBox?.maxTokens || DEFAULT_SECTION_SETTINGS.infoBox.maxTokens);
+    $('#rpg-info-box-stop-sequences').val((sectionSettings.infoBox?.stopSequences || DEFAULT_SECTION_SETTINGS.infoBox.stopSequences).join('\n'));
+
+    // Character Thoughts
+    $('#rpg-character-thoughts-max-tokens').val(sectionSettings.characterThoughts?.maxTokens || DEFAULT_SECTION_SETTINGS.characterThoughts.maxTokens);
+    $('#rpg-character-thoughts-stop-sequences').val((sectionSettings.characterThoughts?.stopSequences || DEFAULT_SECTION_SETTINGS.characterThoughts.stopSequences).join('\n'));
 
     // Set theme to match current extension theme
     const theme = extensionSettings.theme || 'default';
@@ -151,6 +205,37 @@ function savePrompts() {
     extensionSettings.customTrackerInstructionsPrompt = $('#rpg-prompt-tracker-instructions').val().trim();
     extensionSettings.customTrackerContinuationPrompt = $('#rpg-prompt-tracker-continuation').val().trim();
     extensionSettings.customCombatNarrativePrompt = $('#rpg-prompt-combat-narrative').val().trim();
+
+    // Save per-section prompts
+    extensionSettings.customUserStatsPrompt = $('#rpg-prompt-user-stats').val().trim();
+    extensionSettings.customInfoBoxPrompt = $('#rpg-prompt-info-box').val().trim();
+    extensionSettings.customCharacterThoughtsPrompt = $('#rpg-prompt-character-thoughts').val().trim();
+
+    // Save per-section regeneration settings
+    if (!extensionSettings.sectionRegenerationSettings) {
+        extensionSettings.sectionRegenerationSettings = {};
+    }
+
+    // User Stats
+    extensionSettings.sectionRegenerationSettings.userStats = {
+        maxTokens: parseInt($('#rpg-user-stats-max-tokens').val()) || DEFAULT_SECTION_SETTINGS.userStats.maxTokens,
+        stopSequences: $('#rpg-user-stats-stop-sequences').val().trim()
+            .split('\n').map(s => s.trim()).filter(s => s.length > 0)
+    };
+
+    // Info Box
+    extensionSettings.sectionRegenerationSettings.infoBox = {
+        maxTokens: parseInt($('#rpg-info-box-max-tokens').val()) || DEFAULT_SECTION_SETTINGS.infoBox.maxTokens,
+        stopSequences: $('#rpg-info-box-stop-sequences').val().trim()
+            .split('\n').map(s => s.trim()).filter(s => s.length > 0)
+    };
+
+    // Character Thoughts
+    extensionSettings.sectionRegenerationSettings.characterThoughts = {
+        maxTokens: parseInt($('#rpg-character-thoughts-max-tokens').val()) || DEFAULT_SECTION_SETTINGS.characterThoughts.maxTokens,
+        stopSequences: $('#rpg-character-thoughts-stop-sequences').val().trim()
+            .split('\n').map(s => s.trim()).filter(s => s.length > 0)
+    };
 
     saveSettings();
 }
@@ -195,6 +280,48 @@ function restorePromptToDefault(promptType) {
 }
 
 /**
+ * Restore a specific section's settings to defaults
+ * @param {string} section - Section to restore ('userStats', 'infoBox', 'characterThoughts')
+ */
+function restoreSectionToDefault(section) {
+    const defaults = DEFAULT_SECTION_SETTINGS[section];
+    if (!defaults) {
+        console.error(`[RPG Companion] Unknown section: ${section}`);
+        return;
+    }
+
+    // Restore prompt to default
+    const defaultPrompt = DEFAULT_PROMPTS[section] || '';
+    $(`#rpg-prompt-${section.replace(/([A-Z])/g, '-$1').toLowerCase()}`).val(defaultPrompt);
+
+    // Restore max tokens
+    $(`#rpg-${section.replace(/([A-Z])/g, '-$1').toLowerCase()}-max-tokens`).val(defaults.maxTokens);
+
+    // Restore stop sequences
+    $(`#rpg-${section.replace(/([A-Z])/g, '-$1').toLowerCase()}-stop-sequences`).val(defaults.stopSequences.join('\n'));
+
+    // Update settings
+    switch(section) {
+        case 'userStats':
+            extensionSettings.customUserStatsPrompt = '';
+            break;
+        case 'infoBox':
+            extensionSettings.customInfoBoxPrompt = '';
+            break;
+        case 'characterThoughts':
+            extensionSettings.customCharacterThoughtsPrompt = '';
+            break;
+    }
+
+    if (!extensionSettings.sectionRegenerationSettings) {
+        extensionSettings.sectionRegenerationSettings = {};
+    }
+    extensionSettings.sectionRegenerationSettings[section] = JSON.parse(JSON.stringify(defaults));
+
+    saveSettings();
+}
+
+/**
  * Restore all prompts to their defaults
  */
 function restoreAllToDefaults() {
@@ -206,6 +333,22 @@ function restoreAllToDefaults() {
     $('#rpg-prompt-tracker-instructions').val(DEFAULT_PROMPTS.trackerInstructions);
     $('#rpg-prompt-tracker-continuation').val(DEFAULT_PROMPTS.trackerContinuation);
     $('#rpg-prompt-combat-narrative').val(DEFAULT_PROMPTS.combatNarrative);
+    $('#rpg-prompt-user-stats').val(DEFAULT_PROMPTS.userStats);
+    $('#rpg-prompt-info-box').val(DEFAULT_PROMPTS.infoBox);
+    $('#rpg-prompt-character-thoughts').val(DEFAULT_PROMPTS.characterThoughts);
+
+    // Restore per-section regeneration settings
+    // User Stats
+    $('#rpg-user-stats-max-tokens').val(DEFAULT_SECTION_SETTINGS.userStats.maxTokens);
+    $('#rpg-user-stats-stop-sequences').val(DEFAULT_SECTION_SETTINGS.userStats.stopSequences.join('\n'));
+
+    // Info Box
+    $('#rpg-info-box-max-tokens').val(DEFAULT_SECTION_SETTINGS.infoBox.maxTokens);
+    $('#rpg-info-box-stop-sequences').val(DEFAULT_SECTION_SETTINGS.infoBox.stopSequences.join('\n'));
+
+    // Character Thoughts
+    $('#rpg-character-thoughts-max-tokens').val(DEFAULT_SECTION_SETTINGS.characterThoughts.maxTokens);
+    $('#rpg-character-thoughts-stop-sequences').val(DEFAULT_SECTION_SETTINGS.characterThoughts.stopSequences.join('\n'));
 
     // Clear all custom prompts
     extensionSettings.customHtmlPrompt = '';
@@ -216,6 +359,10 @@ function restoreAllToDefaults() {
     extensionSettings.customTrackerInstructionsPrompt = '';
     extensionSettings.customTrackerContinuationPrompt = '';
     extensionSettings.customCombatNarrativePrompt = '';
+    extensionSettings.customUserStatsPrompt = '';
+    extensionSettings.customInfoBoxPrompt = '';
+    extensionSettings.customCharacterThoughtsPrompt = '';
+    extensionSettings.sectionRegenerationSettings = JSON.parse(JSON.stringify(DEFAULT_SECTION_SETTINGS));
 
     saveSettings();
 }

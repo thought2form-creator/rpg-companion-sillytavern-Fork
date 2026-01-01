@@ -25,7 +25,7 @@ export const defaultSettings = {
     enabled: true,
     autoUpdate: true,
     updateDepth: 4, // How many messages to include in the context
-    generationMode: 'together', // 'separate' or 'together' - whether to generate with main response or separately
+    generationMode: 'together', // 'together', 'separate', or 'external' - how to generate tracker data
     useSeparatePreset: false, // Use 'RPG Companion Trackers' preset for tracker generation instead of main API model
     showUserStats: true,
     showInfoBox: true,
@@ -47,6 +47,33 @@ export const defaultSettings = {
     enablePlotButtons: true, // Show plot progression buttons above chat input
     saveTrackerHistory: false, // Save tracker data in chat history for each message
     panelPosition: 'right', // 'left', 'right', or 'top'
+    // Per-section custom prompts for regeneration
+    customUserStatsPrompt: '', // Custom prompt for User Stats section (empty = use default)
+    customInfoBoxPrompt: '', // Custom prompt for Info Box section (empty = use default)
+    customCharacterThoughtsPrompt: '', // Custom prompt for Character Thoughts section (empty = use default)
+    // Per-section regeneration settings (max tokens and stop sequences)
+    sectionRegenerationSettings: {
+        userStats: {
+            maxTokens: 500,
+            stopSequences: ['###TRACKER_END###', '\n\n---', '\n\nThe ', '\n\nAs ', '\n\nSuddenly', '\n\n*', 'Here is', 'I hope']
+        },
+        infoBox: {
+            maxTokens: 300,
+            stopSequences: ['###TRACKER_END###', '\n\n---', '\n\nThe ', '\n\nAs ', '\n\nSuddenly', '\n\n*', 'Here is', 'I hope']
+        },
+        characterThoughts: {
+            maxTokens: 1000,
+            stopSequences: ['###TRACKER_END###', '\n\n---', '\n\nThe ', '\n\nAs ', '\n\nSuddenly', '\n\n*', '\n\nMeanwhile', 'Here is', 'I hope']
+        }
+    },
+    // Character field regeneration settings
+    characterFieldRegenerationSettings: {
+        contextDepth: 4, // How many messages to include for field regeneration context
+        maxTokens: 100, // Max tokens for field regeneration (short outputs)
+        stopSequences: ['\n\n', '\n', '.', '!', '?', '"', "'", '###', 'Here is', 'I hope', 'The ', 'As ', 'Suddenly'], // Stop sequences for short field outputs
+        thoughtsMaxTokens: 150, // Max tokens specifically for thoughts field (slightly longer)
+        thoughtsStopSequences: ['\n\n', '###', 'Here is', 'I hope', 'The character', 'As the'] // Stop sequences for thoughts
+    },
     theme: 'default', // Theme: default, sci-fi, fantasy, cyberpunk, custom
     customColors: {
         bg: '#1a1a2e',

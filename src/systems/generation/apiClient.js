@@ -38,10 +38,13 @@ let originalPresetName = null;
  * Used when generationMode is 'external'.
  *
  * @param {Array<{role: string, content: string}>} messages - Array of message objects for the API
+ * @param {Object} options - Optional generation parameters
+ * @param {number} options.maxTokens - Override max tokens (default: from settings or 2048)
+ * @param {Array<string>} options.stop - Stop sequences to halt generation
  * @returns {Promise<string>} The generated response content
  * @throws {Error} If the API call fails or configuration is invalid
  */
-export async function generateWithExternalAPI(messages) {
+export async function generateWithExternalAPI(messages, options = {}) {
     const { baseUrl, model, maxTokens, temperature } = extensionSettings.externalApiSettings || {};
     // Retrieve API key from secure storage (not shared extension settings)
     const apiKey = localStorage.getItem('rpg_companion_external_api_key');
@@ -63,6 +66,19 @@ export async function generateWithExternalAPI(messages) {
 
     console.log(`[RPG Companion] Calling external API: ${normalizedBaseUrl} with model: ${model}`);
 
+    // Build request body
+    const requestBody = {
+        model: model.trim(),
+        messages: messages,
+        max_tokens: options.maxTokens || maxTokens || 2048,
+        temperature: temperature ?? 0.7
+    };
+
+    // Add stop sequences if provided
+    if (options.stop && options.stop.length > 0) {
+        requestBody.stop = options.stop;
+    }
+
     try {
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -70,12 +86,7 @@ export async function generateWithExternalAPI(messages) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey.trim()}`
             },
-            body: JSON.stringify({
-                model: model.trim(),
-                messages: messages,
-                max_tokens: maxTokens || 2048,
-                temperature: temperature ?? 0.7
-            })
+            body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
@@ -275,6 +286,17 @@ export async function updateRPGData(renderUserStats, renderInfoBox, renderThough
             // console.log('[RPG Companion] Parsed data:', parsedData);
             // console.log('[RPG Companion] parsedData.userStats:', parsedData.userStats ? parsedData.userStats.substring(0, 100) + '...' : 'null');
 
+            // Validate that we got at least some valid data
+            const hasValidData = (
+                (parsedData.userStats && parsedData.userStats.trim().length > 0) ||
+                (parsedData.infoBox && parsedData.infoBox.trim().length > 0) ||
+                (parsedData.characterThoughts && parsedData.characterThoughts.trim().length > 0)
+            );
+
+            if (!hasValidData) {
+                throw new Error('LLM returned a response but no valid tracker data could be parsed');
+            }
+
             // DON'T update lastGeneratedData here - it should only reflect the data
             // from the assistant message the user replied to, not auto-generated updates
             // This ensures swipes/regenerations use consistent source data
@@ -375,13 +397,19 @@ export async function updateRPGData(renderUserStats, renderInfoBox, renderThough
                     renderThoughts();
                 }
             }
+        } else {
+            // No response from LLM
+            throw new Error('LLM returned an empty response');
         }
 
     } catch (error) {
         console.error('[RPG Companion] Error updating RPG data:', error);
-        if (isExternalMode) {
-            toastr.error(error.message, 'RPG Companion External API Error');
-        }
+        // Show user-friendly error message
+        toastr.error(
+            `Failed to update tracker: ${error.message}`,
+            'RPG Companion',
+            { timeOut: 5000 }
+        );
     } finally {
         // Restore original preset if we switched to a separate one
         if (originalPresetName && extensionSettings.useSeparatePreset) {

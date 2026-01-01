@@ -290,8 +290,18 @@ function removeCharacter(characterName) {
 
         console.log(`[RPG Companion] Character removed: ${characterName}`);
 
+        // Preserve scroll position before re-rendering
+        const scrollTop = $thoughtsContainer ? $thoughtsContainer.scrollTop() : 0;
+
         // Re-render the panel
         renderThoughts();
+
+        // Restore scroll position after re-rendering (use setTimeout to ensure DOM is updated)
+        if ($thoughtsContainer && scrollTop > 0) {
+            setTimeout(() => {
+                $thoughtsContainer.scrollTop(scrollTop);
+            }, 0);
+        }
     } else {
         console.warn(`[RPG Companion] Character not found: ${characterName}`);
     }
@@ -450,6 +460,24 @@ export function renderThoughts() {
 
     // Build HTML
     let html = '';
+
+    // Add section header with buttons
+    html += `
+        <div class="rpg-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h4 style="margin: 0;">Present Characters</h4>
+            <div style="display: flex; gap: 4px;">
+                <button id="rpg-regenerate-present-characters" class="rpg-btn-icon" title="Regenerate Present Characters" style="padding: 4px 8px; font-size: 14px;">
+                    <i class="fa-solid fa-rotate"></i>
+                </button>
+                <button id="rpg-regenerate-present-characters-guided" class="rpg-btn-icon" title="Regenerate with Guidance" style="padding: 4px 8px; font-size: 14px;">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <button id="rpg-open-character-editor" class="rpg-btn-icon" title="Advanced Character Editor" style="padding: 4px 8px; font-size: 14px;">
+                    <i class="fa-solid fa-users-gear"></i>
+                </button>
+            </div>
+        </div>
+    `;
 
     debugLog('[RPG Thoughts] ==================== BUILDING HTML ====================');
     debugLog('[RPG Thoughts] Starting HTML generation for', presentCharacters.length + ' characters');
@@ -612,13 +640,73 @@ export function renderThoughts() {
     debugLog('[RPG Thoughts] ✓ HTML rendered to container');
     debugLog('[RPG Thoughts] =======================================================');
 
+    // Add event handler for quick regenerate button (no guidance)
+    $('#rpg-regenerate-present-characters').off('click').on('click', async function() {
+        try {
+            const { regenerateTrackerSectionDirect } = await import('../ui/trackerRegeneration.js');
+            toastr.info('Regenerating Present Characters...', 'RPG Companion', { timeOut: 0, extendedTimeOut: 0 });
+            await regenerateTrackerSectionDirect('presentCharacters', '');
+            toastr.clear();
+            toastr.success('Present Characters regenerated successfully!', 'RPG Companion');
+        } catch (error) {
+            toastr.clear();
+            console.error('[RPG Companion] Failed to regenerate:', error);
+            toastr.error('Failed to regenerate: ' + error.message, 'RPG Companion');
+        }
+    });
+
+    // Add event handler for guided regenerate button (with guidance dialog)
+    $('#rpg-regenerate-present-characters-guided').off('click').on('click', async function() {
+        try {
+            const { showTrackerRegenerationDialog } = await import('../ui/trackerRegeneration.js');
+            showTrackerRegenerationDialog('presentCharacters');
+        } catch (error) {
+            console.error('[RPG Companion] Failed to load tracker regeneration module:', error);
+            toastr.error('Failed to open regeneration dialog: ' + error.message, 'RPG Companion');
+        }
+    });
+
+    // Add event handler for character editor button
+    $('#rpg-open-character-editor').off('click').on('click', async function() {
+        try {
+            console.log('[RPG Companion] Loading character editor module...');
+            // Import dynamically to avoid circular dependencies
+            const module = await import('../ui/characterEditor.js');
+            console.log('[RPG Companion] Module loaded:', module);
+            console.log('[RPG Companion] Calling openCharacterEditor...');
+            module.openCharacterEditor();
+        } catch (err) {
+            console.error('[RPG Companion] Failed to load character editor:', err);
+            console.error('[RPG Companion] Error stack:', err.stack);
+            toastr.error('Failed to open character editor: ' + err.message, 'RPG Companion');
+        }
+    });
+
     // Add event handlers for editable character fields
     $thoughtsContainer.find('.rpg-editable').on('blur', function() {
-        const character = $(this).data('character');
-        const field = $(this).data('field');
-        const value = $(this).text().trim();
-        console.log('[RPG Companion] Character stat edit:', { character, field, value });
-        updateCharacterField(character, field, value);
+        const $element = $(this);
+        const oldCharacterName = $element.data('character');
+        const field = $element.data('field');
+        const value = $element.text().trim();
+        console.log('[RPG Companion] Character field edit:', { character: oldCharacterName, field, value });
+
+        // Update the data
+        updateCharacterField(oldCharacterName, field, value);
+
+        // If we're editing the name field, update all data-character attributes for this character
+        if (field === 'name' && value !== oldCharacterName) {
+            const $characterCard = $element.closest('.rpg-character-card');
+            if ($characterCard.length > 0) {
+                // Update all elements within this character card that have data-character attribute
+                $characterCard.find(`[data-character="${oldCharacterName}"]`).each(function() {
+                    $(this).attr('data-character', value);
+                    $(this).data('character', value); // Update jQuery data cache
+                });
+                // Also update the card's data-character-name attribute
+                $characterCard.attr('data-character-name', value);
+                console.log('[RPG Companion] Updated data-character attributes from', oldCharacterName, 'to', value);
+            }
+        }
     });
 
     // Add event handler for avatar uploads
@@ -651,7 +739,16 @@ export function renderThoughts() {
                 delete extensionSettings.npcAvatars[characterName];
                 saveSettings();
                 console.log(`[RPG Companion] Removed custom avatar for: ${characterName}`);
+
+                // Preserve scroll position before re-rendering
+                const scrollTop = $thoughtsContainer ? $thoughtsContainer.scrollTop() : 0;
                 renderThoughts();
+                // Restore scroll position after re-rendering (use setTimeout to ensure DOM is updated)
+                if ($thoughtsContainer && scrollTop > 0) {
+                    setTimeout(() => {
+                        $thoughtsContainer.scrollTop(scrollTop);
+                    }, 0);
+                }
             }
             return;
         }
@@ -677,7 +774,15 @@ export function renderThoughts() {
         }
 
         // Re-render to show the new avatar (or fallback)
+        // Preserve scroll position before re-rendering
+        const scrollTop = $thoughtsContainer ? $thoughtsContainer.scrollTop() : 0;
         renderThoughts();
+        // Restore scroll position after re-rendering (use setTimeout to ensure DOM is updated)
+        if ($thoughtsContainer && scrollTop > 0) {
+            setTimeout(() => {
+                $thoughtsContainer.scrollTop(scrollTop);
+            }, 0);
+        }
     });
 
     // Add event handler for character removal
@@ -707,6 +812,17 @@ export function renderThoughts() {
  * @param {string} value - New value for the field
  */
 export function updateCharacterField(characterName, field, value) {
+    // Validate inputs
+    if (!characterName || typeof characterName !== 'string') {
+        console.error('[RPG Companion] Invalid character name for update:', characterName);
+        return;
+    }
+
+    if (!field || typeof field !== 'string') {
+        console.error('[RPG Companion] Invalid field name for update:', field);
+        return;
+    }
+
     // Initialize if it doesn't exist
     if (!lastGeneratedData.characterThoughts) {
         lastGeneratedData.characterThoughts = 'Present Characters\n---\n';
@@ -722,18 +838,49 @@ export function updateCharacterField(characterName, field, value) {
     let inTargetCharacter = false;
     let characterStartIndex = -1;
     let characterEndIndex = -1;
+    let matchedCharacterName = null;
 
-    // Find the character block
+    // Find the character block - use exact match first, then case-insensitive
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
 
         if (line.startsWith('- ')) {
             const name = line.substring(2).trim();
-            if (name.toLowerCase() === characterName.toLowerCase()) {
+            // Try exact match first
+            if (name === characterName) {
                 characterFound = true;
                 inTargetCharacter = true;
                 characterStartIndex = i;
-            } else if (inTargetCharacter) {
+                matchedCharacterName = name;
+                break;
+            }
+        }
+    }
+
+    // If no exact match, try case-insensitive
+    if (!characterFound) {
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+
+            if (line.startsWith('- ')) {
+                const name = line.substring(2).trim();
+                if (name.toLowerCase() === characterName.toLowerCase()) {
+                    characterFound = true;
+                    inTargetCharacter = true;
+                    characterStartIndex = i;
+                    matchedCharacterName = name;
+                    console.warn('[RPG Companion] Character name case mismatch:', { searched: characterName, found: name });
+                    break;
+                }
+            }
+        }
+    }
+
+    // Find the end of the character block
+    if (characterFound) {
+        for (let i = characterStartIndex + 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line.startsWith('- ')) {
                 characterEndIndex = i;
                 break;
             }
@@ -742,6 +889,16 @@ export function updateCharacterField(characterName, field, value) {
 
     if (characterFound && characterEndIndex === -1) {
         characterEndIndex = lines.length;
+    }
+
+    if (!characterFound) {
+        console.error('[RPG Companion] Character not found for update:', {
+            searchedName: characterName,
+            field: field,
+            value: value,
+            availableCharacters: lines.filter(l => l.trim().startsWith('- ')).map(l => l.substring(2).trim())
+        });
+        return;
     }
 
     if (characterFound) {
@@ -916,14 +1073,17 @@ export function updateCharacterField(characterName, field, value) {
     }
 
     saveChatData();
-    renderThoughts();
 
+    // DON'T re-render the entire panel - the data is already updated in the DOM
+    // Just update the chat thoughts overlay if needed
     const thoughtsFieldName = presentCharsConfig?.thoughts?.name || 'Thoughts';
-    if (field === thoughtsFieldName) {
+    if (field === thoughtsFieldName || field.toLowerCase() === 'thoughts') {
         setTimeout(() => updateChatThoughts(), 100);
     } else {
         updateChatThoughts();
     }
+
+    console.log('[RPG Companion] Character field updated without re-rendering panel');
 }
 
 /**
@@ -936,6 +1096,14 @@ export function updateChatThoughts() {
     // console.log('[RPG Companion] showThoughtsInChat setting:', extensionSettings.showThoughtsInChat);
     // console.log('[RPG Companion] Toggle element checked:', $('#rpg-toggle-thoughts-in-chat').prop('checked'));
     // console.log('[RPG Companion] lastGeneratedData.characterThoughts:', lastGeneratedData.characterThoughts);
+
+    // Check if panel already exists (to skip animation on updates)
+    const $existingPanel = $('#rpg-thought-panel');
+    const panelAlreadyExists = $existingPanel.length > 0;
+
+    // Save scroll position before removing the panel
+    const $existingBubble = $('#rpg-thought-panel .rpg-thought-bubble');
+    const savedScrollTop = $existingBubble.length ? $existingBubble.scrollTop() : 0;
 
     // Remove existing thought panel and icon
     $('#rpg-thought-panel').remove();
@@ -1040,7 +1208,17 @@ export function updateChatThoughts() {
     }
 
     // Create the thought panel with all thoughts
-    createThoughtPanel($targetMessage, thoughtsArray);
+    createThoughtPanel($targetMessage, thoughtsArray, panelAlreadyExists);
+
+    // Restore scroll position after panel is created (use setTimeout to ensure DOM is updated)
+    if (savedScrollTop > 0) {
+        setTimeout(() => {
+            const $newBubble = $('#rpg-thought-panel .rpg-thought-bubble');
+            if ($newBubble.length) {
+                $newBubble.scrollTop(savedScrollTop);
+            }
+        }, 0);
+    }
 }
 
 /**
@@ -1049,8 +1227,9 @@ export function updateChatThoughts() {
  *
  * @param {jQuery} $message - Message element to position the panel relative to
  * @param {Array} thoughtsArray - Array of thought objects {name, emoji, thought}
+ * @param {boolean} skipAnimation - If true, skip the fade-in animation (for updates)
  */
-export function createThoughtPanel($message, thoughtsArray) {
+export function createThoughtPanel($message, thoughtsArray, skipAnimation = false) {
     // Remove existing thought panel
     $('#rpg-thought-panel').remove();
     $('#rpg-thought-icon').remove();
@@ -1074,6 +1253,7 @@ export function createThoughtPanel($message, thoughtsArray) {
             <div class="rpg-thought-item">
                 <div class="rpg-thought-emoji-box">
                     ${thought.emoji}
+                    <button class="rpg-thought-regen-btn" data-character="${escapedThoughtName}" title="Regenerate thought">🔄</button>
                 </div>
                 <div class="rpg-thought-content rpg-editable" contenteditable="true" data-character="${escapedThoughtName}" data-field="thoughts" title="Click to edit thoughts">
                     ${thought.thought}
@@ -1122,6 +1302,11 @@ export function createThoughtPanel($message, thoughtsArray) {
 
     // Force a consistent width for the bubble to ensure proper positioning
     $thoughtPanel.css('width', '350px');
+
+    // Skip animation if this is an update (not initial creation)
+    if (skipAnimation) {
+        $thoughtPanel.addClass('rpg-no-animation');
+    }
 
     // Append to body so it's not clipped by chat container
     $('body').append($thoughtPanel);
@@ -1266,6 +1451,13 @@ export function createThoughtPanel($message, thoughtsArray) {
         updateCharacterField(character, field, value);
     });
 
+    // Add event handler for regenerate buttons in thought bubbles
+    $thoughtPanel.find('.rpg-thought-regen-btn').on('click', async function(e) {
+        e.stopPropagation();
+        const characterName = $(this).data('character');
+        await regenerateIndividualThought(characterName);
+    });
+
     // RAF throttling for smooth position updates
     let positionUpdateRaf = null;
 
@@ -1343,5 +1535,76 @@ export function createThoughtPanel($message, thoughtsArray) {
                 $thoughtIcon.fadeIn(200);
             }
         });
+    }
+}
+
+/**
+ * Regenerates a single character's thought from the thought bubble widget
+ * @param {string} characterName - Name of the character whose thought to regenerate
+ */
+async function regenerateIndividualThought(characterName) {
+    try {
+        toastr.info(`Regenerating thought for ${characterName}...`, 'RPG Companion');
+
+        // Import regeneration functions
+        const { buildFieldRegenerationPrompt, callLLMForGeneration, parseFieldRegenerationResponse } = await import('../ui/characterRegeneration.js');
+
+        // Get current character data from Present Characters
+        const lines = committedTrackerData.characterThoughts?.split('\n') || [];
+        const currentData = {};
+        let inCharacter = false;
+        let currentCharName = null;
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+
+            // Check for character name line
+            if (trimmed && !trimmed.includes(':') && !trimmed.includes('---')) {
+                currentCharName = trimmed;
+                inCharacter = (currentCharName === characterName);
+                continue;
+            }
+
+            // If we're in the target character, parse their data
+            if (inCharacter && trimmed.includes(':')) {
+                const colonIndex = trimmed.indexOf(':');
+                const fieldName = trimmed.substring(0, colonIndex).trim();
+                const fieldValue = trimmed.substring(colonIndex + 1).trim();
+                currentData[fieldName] = fieldValue;
+            }
+        }
+
+        // Get field configuration
+        const config = extensionSettings.trackerConfig?.presentCharacters;
+        const thoughtsConfig = config?.thoughts;
+        const fieldConfig = {
+            name: thoughtsConfig?.name || 'Thoughts',
+            description: thoughtsConfig?.description || 'Internal monologue (in first person POV, up to three sentences long)'
+        };
+
+        // Build prompt
+        const prompt = await buildFieldRegenerationPrompt(characterName, fieldConfig.name, currentData, '', fieldConfig);
+
+        // Get field regeneration settings for thoughts
+        const fieldSettings = extensionSettings.characterFieldRegenerationSettings || {};
+        const maxTokens = fieldSettings.thoughtsMaxTokens || 150;
+        const stopSequences = fieldSettings.thoughtsStopSequences || ['\n\n', '###', 'Here is', 'I hope'];
+
+        // Call LLM
+        const response = await callLLMForGeneration(prompt, {
+            maxTokens: maxTokens,
+            stopSequences: stopSequences
+        });
+
+        // Parse response
+        const newThought = parseFieldRegenerationResponse(response);
+
+        // Update the character's thought
+        updateCharacterField(characterName, fieldConfig.name, newThought);
+
+        toastr.success(`Thought regenerated for ${characterName}`, 'RPG Companion');
+    } catch (error) {
+        console.error('[RPG Companion] Individual thought regeneration failed:', error);
+        toastr.error(`Failed to regenerate thought: ${error.message}`, 'RPG Companion');
     }
 }

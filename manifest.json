@@ -1,11 +1,11 @@
 {
-    "display_name": "RPG Companion",
+    "display_name": "RPG Companion Enhanced",
     "loading_order": 100,
     "requires": [],
     "optional": [],
     "js": "index.js",
     "css": "style.css",
-    "author": "Marysia",
-    "version": "2.0.0",
-    "homePage": "https://github.com/SpicyMarinara/rpg-companion-sillytavern"
+    "author": "Fork by thought2form-creator - Original by Marysia",
+    "version": "2.1.0",
+    "homePage": "https://github.com/thought2form-creator/rpg-companion-sillytavern"
 }

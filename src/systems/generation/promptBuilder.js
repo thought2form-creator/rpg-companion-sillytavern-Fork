@@ -225,16 +225,22 @@ export function generateTrackerExample() {
  * @param {boolean} includeHtmlPrompt - Whether to include the HTML prompt (true for main generation, false for separate tracker generation)
  * @param {boolean} includeContinuation - Whether to include "After updating the trackers, continue..." instruction
  * @param {boolean} includeAttributes - Whether to include RPG attributes (false for separate tracker generation)
+ * @param {string|null} targetSection - Optional: 'userStats', 'infoBox', 'characterThoughts', or null for all sections
  * @returns {string} Formatted instruction text for the AI
  */
-export function generateTrackerInstructions(includeHtmlPrompt = true, includeContinuation = true, includeAttributes = true) {
+export function generateTrackerInstructions(includeHtmlPrompt = true, includeContinuation = true, includeAttributes = true, targetSection = null) {
     const userName = getContext().name1;
     const classicStats = extensionSettings.classicStats;
     const trackerConfig = extensionSettings.trackerConfig;
     let instructions = '';
 
+    // Determine which sections to include based on targetSection parameter
+    const includeUserStats = (targetSection === null || targetSection === 'userStats') && extensionSettings.showUserStats;
+    const includeInfoBox = (targetSection === null || targetSection === 'infoBox') && extensionSettings.showInfoBox;
+    const includeCharacterThoughts = (targetSection === null || targetSection === 'characterThoughts') && extensionSettings.showCharacterThoughts;
+
     // Check if any trackers are enabled
-    const hasAnyTrackers = extensionSettings.showUserStats || extensionSettings.showInfoBox || extensionSettings.showCharacterThoughts;
+    const hasAnyTrackers = includeUserStats || includeInfoBox || includeCharacterThoughts;
 
     // Only add tracker instructions if at least one tracker is enabled
     if (hasAnyTrackers) {
@@ -263,7 +269,7 @@ export function generateTrackerInstructions(includeHtmlPrompt = true, includeCon
         }
 
         // Add format specifications for each enabled tracker
-        if (extensionSettings.showUserStats) {
+        if (includeUserStats) {
             const userStatsConfig = trackerConfig?.userStats;
             const enabledStats = userStatsConfig?.customStats?.filter(s => s && s.enabled && s.name) || [];
 
@@ -315,7 +321,7 @@ export function generateTrackerInstructions(includeHtmlPrompt = true, includeCon
             instructions += codeBlockMarker + '\n\n';
         }
 
-        if (extensionSettings.showInfoBox) {
+        if (includeInfoBox) {
             const infoBoxConfig = trackerConfig?.infoBox;
             const widgets = infoBoxConfig?.widgets || {};
 
@@ -347,7 +353,7 @@ export function generateTrackerInstructions(includeHtmlPrompt = true, includeCon
             instructions += codeBlockMarker + '\n\n';
         }
 
-        if (extensionSettings.showCharacterThoughts) {
+        if (includeCharacterThoughts) {
             const presentCharsConfig = trackerConfig?.presentCharacters;
             const enabledFields = presentCharsConfig?.customFields?.filter(f => f && f.enabled && f.name) || [];
             const relationshipFields = presentCharsConfig?.relationshipFields || [];
@@ -547,9 +553,10 @@ export function generateContextualSummary() {
  * Generates the RPG tracking prompt text (for backward compatibility with separate mode).
  * Uses COMMITTED data (not displayed data) for generation context.
  *
+ * @param {string|null} targetSection - Optional: 'userStats', 'infoBox', 'characterThoughts', or null for all sections
  * @returns {string} Full prompt text for separate tracker generation
  */
-export function generateRPGPromptText() {
+export function generateRPGPromptText(targetSection = null) {
     // Use COMMITTED data for generation context, not displayed data
     const userName = getContext().name1;
 
@@ -558,7 +565,8 @@ export function generateRPGPromptText() {
     promptText += `Here are the previous trackers in the roleplay that you should consider when responding:\n`;
     promptText += `<previous>\n`;
 
-    if (extensionSettings.showUserStats) {
+    // Include userStats context if we're generating all sections OR specifically userStats
+    if ((targetSection === null || targetSection === 'userStats') && extensionSettings.showUserStats) {
         if (committedTrackerData.userStats) {
             promptText += `Last ${userName}'s Stats:\n${committedTrackerData.userStats}\n\n`;
         } else {
@@ -585,7 +593,8 @@ export function generateRPGPromptText() {
         }
     }
 
-    if (extensionSettings.showInfoBox) {
+    // Include infoBox context if we're generating all sections OR specifically infoBox
+    if ((targetSection === null || targetSection === 'infoBox') && extensionSettings.showInfoBox) {
         if (committedTrackerData.infoBox) {
             promptText += `Last Info Box:\n${committedTrackerData.infoBox}\n\n`;
         } else {
@@ -593,7 +602,8 @@ export function generateRPGPromptText() {
         }
     }
 
-    if (extensionSettings.showCharacterThoughts) {
+    // Include characterThoughts context if we're generating all sections OR specifically characterThoughts
+    if ((targetSection === null || targetSection === 'characterThoughts') && extensionSettings.showCharacterThoughts) {
         if (committedTrackerData.characterThoughts) {
             promptText += `Last Present Characters:\n${committedTrackerData.characterThoughts}\n`;
         } else {
@@ -604,7 +614,8 @@ export function generateRPGPromptText() {
     promptText += `</previous>\n`;
 
     // Don't include HTML prompt, continuation instruction, or attributes for separate tracker generation
-    promptText += generateTrackerInstructions(false, false, false);
+    // Pass targetSection to generateTrackerInstructions so it only generates instructions for the target section
+    promptText += generateTrackerInstructions(false, false, false, targetSection);
 
     return promptText;
 }
@@ -613,9 +624,10 @@ export function generateRPGPromptText() {
  * Generates the full prompt for SEPARATE generation mode (with chat history).
  * Creates a message array suitable for the generateRaw API.
  *
+ * @param {string|null} targetSection - Optional: 'userStats', 'infoBox', 'characterThoughts', or null for all sections
  * @returns {Array<{role: string, content: string}>} Array of message objects for API
  */
-export async function generateSeparateUpdatePrompt() {
+export async function generateSeparateUpdatePrompt(targetSection = null) {
     const depth = extensionSettings.updateDepth;
     const userName = getContext().name1;
 
@@ -654,8 +666,29 @@ export async function generateSeparateUpdatePrompt() {
 
     // Build the instruction message
     let instructionMessage = `</history>\n\n`;
-    instructionMessage += generateRPGPromptText().replace('start your response with', 'respond with');
-    instructionMessage += `Provide ONLY the requested data in the exact formats specified above. Do not include any roleplay response, other text, or commentary. Remember, all bracketed placeholders (e.g., [Location], [Mood Emoji]) MUST be replaced with actual content without the square brackets.`;
+
+    // Get the refined per-section prompt (used as base instruction for focused regeneration)
+    let refinedPrompt = '';
+    switch (targetSection) {
+        case 'userStats':
+            refinedPrompt = extensionSettings.customUserStatsPrompt || '';
+            break;
+        case 'infoBox':
+            refinedPrompt = extensionSettings.customInfoBoxPrompt || '';
+            break;
+        case 'characterThoughts':
+            refinedPrompt = extensionSettings.customCharacterThoughtsPrompt || '';
+            break;
+    }
+
+    // Use refined prompt as the main instruction if available
+    if (refinedPrompt && refinedPrompt.trim()) {
+        instructionMessage += `${refinedPrompt.trim()}\n\n`;
+    }
+
+    // Add previous tracker data and format specification
+    instructionMessage += generateRPGPromptText(targetSection).replace('start your response with', 'respond with');
+    instructionMessage += `\n\nProvide ONLY the requested data in the exact formats specified above. Do not include any roleplay response, other text, or commentary. Remember, all bracketed placeholders (e.g., [Location], [Mood Emoji]) MUST be replaced with actual content without the square brackets.`;
 
     messages.push({
         role: 'user',

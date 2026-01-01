@@ -60,6 +60,11 @@ export function renderInfoBox() {
         return;
     }
 
+    // Preserve scroll position before re-rendering
+    // The actual scrollable element is .rpg-info-content, not the container
+    const $scrollableContent = $infoBoxContainer.find('.rpg-info-content');
+    const scrollTop = $scrollableContent.length > 0 ? $scrollableContent.scrollTop() : 0;
+
     // Add updating class for animation
     if (extensionSettings.enableAnimations) {
         $infoBoxContainer.addClass('rpg-content-updating');
@@ -275,8 +280,25 @@ export function renderInfoBox() {
     const config = extensionSettings.trackerConfig?.infoBox;
 
     // Build visual dashboard HTML
+    let html = '';
+
+    // Add section header with regenerate buttons
+    html += `
+        <div class="rpg-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h4 style="margin: 0;">Environment</h4>
+            <div style="display: flex; gap: 4px;">
+                <button id="rpg-regenerate-info-box" class="rpg-btn-icon" title="Regenerate Info Box" style="padding: 4px 8px; font-size: 14px;">
+                    <i class="fa-solid fa-rotate"></i>
+                </button>
+                <button id="rpg-regenerate-info-box-guided" class="rpg-btn-icon" title="Regenerate with Guidance" style="padding: 4px 8px; font-size: 14px;">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+            </div>
+        </div>
+    `;
+
     // Wrap all content in a scrollable container
-    let html = '<div class="rpg-info-content">';
+    html += '<div class="rpg-info-content">';
 
     // Row 1: Date, Weather, Temperature, Time widgets
     const row1Widgets = [];
@@ -517,9 +539,46 @@ export function renderInfoBox() {
         }
     });
 
+    // Add event listener for quick regenerate button (no guidance)
+    $('#rpg-regenerate-info-box').off('click').on('click', async function() {
+        try {
+            const { regenerateTrackerSectionDirect } = await import('../ui/trackerRegeneration.js');
+            toastr.info('Regenerating Info Box...', 'RPG Companion', { timeOut: 0, extendedTimeOut: 0 });
+            await regenerateTrackerSectionDirect('infoBox', '');
+            toastr.clear();
+            toastr.success('Info Box regenerated successfully!', 'RPG Companion');
+        } catch (error) {
+            toastr.clear();
+            console.error('[RPG Companion] Failed to regenerate:', error);
+            toastr.error('Failed to regenerate: ' + error.message, 'RPG Companion');
+        }
+    });
+
+    // Add event listener for guided regenerate button (with guidance dialog)
+    $('#rpg-regenerate-info-box-guided').off('click').on('click', async function() {
+        try {
+            const { showTrackerRegenerationDialog } = await import('../ui/trackerRegeneration.js');
+            showTrackerRegenerationDialog('infoBox');
+        } catch (error) {
+            console.error('[RPG Companion] Failed to load tracker regeneration module:', error);
+            toastr.error('Failed to open regeneration dialog: ' + error.message, 'RPG Companion');
+        }
+    });
+
     // Remove updating class after animation
     if (extensionSettings.enableAnimations) {
         setTimeout(() => $infoBoxContainer.removeClass('rpg-content-updating'), 500);
+    }
+
+    // Restore scroll position after re-rendering (use setTimeout to ensure DOM is updated)
+    // The actual scrollable element is .rpg-info-content
+    if (scrollTop > 0) {
+        setTimeout(() => {
+            const $newScrollableContent = $infoBoxContainer.find('.rpg-info-content');
+            if ($newScrollableContent.length > 0) {
+                $newScrollableContent.scrollTop(scrollTop);
+            }
+        }, 0);
     }
 }
 
