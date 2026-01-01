@@ -2070,10 +2070,10 @@ body:has(.rpg-panel.rpg-position-left) #sheld {
     transform: scale(1.15) rotate(15deg);
 }
 
-/* Pinned character card - subtle highlight */
+/* Pinned character card - red border */
 .rpg-character-card.rpg-character-pinned {
-    border-color: rgba(255, 215, 0, 0.3);
-    box-shadow: 0 0 8px rgba(255, 215, 0, 0.15);
+    border-color: rgba(255, 69, 69, 0.6);
+    box-shadow: 0 0 12px rgba(255, 69, 69, 0.3);
 }
 
 /* Character freeze button */
@@ -2119,21 +2119,16 @@ body:has(.rpg-panel.rpg-position-left) #sheld {
     transform: scale(1.15);
 }
 
-/* Frozen character card - ice blue highlight */
+/* Frozen character card - blue border */
 .rpg-character-card.rpg-character-frozen {
-    border-color: rgba(135, 206, 250, 0.4);
-    box-shadow: 0 0 10px rgba(135, 206, 250, 0.2);
-    background: linear-gradient(135deg,
-        var(--rpg-card-bg) 0%,
-        rgba(135, 206, 250, 0.05) 100%);
+    border-color: rgba(100, 149, 237, 0.7);
+    box-shadow: 0 0 12px rgba(100, 149, 237, 0.4);
 }
 
-/* Frozen and pinned - combine both effects */
+/* Frozen and pinned - purple border (combination) */
 .rpg-character-card.rpg-character-frozen.rpg-character-pinned {
-    border-color: rgba(135, 206, 250, 0.5);
-    box-shadow:
-        0 0 10px rgba(135, 206, 250, 0.25),
-        0 0 8px rgba(255, 215, 0, 0.15);
+    border-color: rgba(147, 51, 234, 0.7);
+    box-shadow: 0 0 15px rgba(147, 51, 234, 0.4);
 }
 
 /* Character remove button */
