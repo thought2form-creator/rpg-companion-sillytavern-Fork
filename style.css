@@ -2076,6 +2076,66 @@ body:has(.rpg-panel.rpg-position-left) #sheld {
     box-shadow: 0 0 8px rgba(255, 215, 0, 0.15);
 }
 
+/* Character freeze button */
+.rpg-character-freeze {
+    background: transparent;
+    border: none;
+    color: var(--rpg-text);
+    font-size: clamp(12px, 1.8vw, 16px);
+    cursor: pointer;
+    padding: 0;
+    margin-left: clamp(4px, 0.5vw, 6px);
+    width: clamp(16px, 2.5vh, 20px);
+    height: clamp(16px, 2.5vh, 20px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    opacity: 0.4;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.rpg-character-freeze:hover {
+    opacity: 1;
+    background: rgba(135, 206, 250, 0.2);
+    transform: scale(1.1);
+}
+
+.rpg-character-freeze:active {
+    transform: scale(0.95);
+}
+
+/* Frozen state - make freeze button more visible */
+.rpg-character-freeze.rpg-character-frozen {
+    opacity: 1;
+    color: #87ceeb;
+    text-shadow: 0 0 6px rgba(135, 206, 250, 0.6);
+    filter: drop-shadow(0 0 2px rgba(135, 206, 250, 0.8));
+}
+
+.rpg-character-freeze.rpg-character-frozen:hover {
+    background: rgba(135, 206, 250, 0.3);
+    transform: scale(1.15);
+}
+
+/* Frozen character card - ice blue highlight */
+.rpg-character-card.rpg-character-frozen {
+    border-color: rgba(135, 206, 250, 0.4);
+    box-shadow: 0 0 10px rgba(135, 206, 250, 0.2);
+    background: linear-gradient(135deg,
+        var(--rpg-card-bg) 0%,
+        rgba(135, 206, 250, 0.05) 100%);
+}
+
+/* Frozen and pinned - combine both effects */
+.rpg-character-card.rpg-character-frozen.rpg-character-pinned {
+    border-color: rgba(135, 206, 250, 0.5);
+    box-shadow:
+        0 0 10px rgba(135, 206, 250, 0.25),
+        0 0 8px rgba(255, 215, 0, 0.15);
+}
+
 /* Character remove button */
 .rpg-character-remove {
     background: transparent;

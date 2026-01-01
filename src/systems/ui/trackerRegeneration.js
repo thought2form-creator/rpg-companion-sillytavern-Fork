@@ -94,6 +94,84 @@ function mergePinnedCharacters(newData) {
 }
 
 /**
+ * Merges frozen characters from stored data with newly regenerated data
+ * Frozen characters replace any regenerated version with their locked state
+ * @param {string} newData - Newly regenerated Present Characters data
+ * @returns {string} Merged data with frozen characters replacing regenerated versions
+ */
+function mergeFrozenCharacters(newData) {
+    // If no frozen characters, return new data as-is
+    if (!extensionSettings.frozenCharacters || Object.keys(extensionSettings.frozenCharacters).length === 0) {
+        return newData;
+    }
+
+    const newLines = newData.split('\n');
+    const result = [];
+    let currentCharName = null;
+    let currentCharBlock = [];
+    let skipCurrentChar = false;
+    let frozenCharsReplaced = 0;
+
+    for (let i = 0; i < newLines.length; i++) {
+        const line = newLines[i];
+        const trimmed = line.trim();
+
+        if (trimmed.startsWith('- ')) {
+            // Save previous character block if we weren't skipping it
+            if (currentCharName && !skipCurrentChar) {
+                result.push(...currentCharBlock);
+            }
+
+            // Start new character
+            currentCharName = trimmed.substring(2).trim();
+            const lowerName = currentCharName.toLowerCase();
+
+            // Check if this character is frozen
+            if (extensionSettings.frozenCharacters[lowerName]) {
+                // Use frozen data instead of regenerated data
+                result.push(extensionSettings.frozenCharacters[lowerName]);
+                skipCurrentChar = true;
+                frozenCharsReplaced++;
+                console.log(`[RPG Companion] Replaced regenerated data with frozen state for: ${currentCharName}`);
+            } else {
+                // Use regenerated data
+                currentCharBlock = [line];
+                skipCurrentChar = false;
+            }
+        } else if (!skipCurrentChar) {
+            currentCharBlock.push(line);
+        }
+    }
+
+    // Save last character block if we weren't skipping it
+    if (currentCharName && !skipCurrentChar) {
+        result.push(...currentCharBlock);
+    }
+
+    if (frozenCharsReplaced > 0) {
+        console.log(`[RPG Companion] Replaced ${frozenCharsReplaced} frozen character(s) with their locked state`);
+    }
+
+    return result.join('\n');
+}
+
+/**
+ * Merges both pinned and frozen characters with regenerated data
+ * First applies frozen character replacements, then adds missing pinned characters
+ * @param {string} newData - Newly regenerated Present Characters data
+ * @returns {string} Fully merged data
+ */
+function mergeProtectedCharacters(newData) {
+    // First, replace frozen characters with their locked state
+    let result = mergeFrozenCharacters(newData);
+
+    // Then, add back any pinned characters that are missing
+    result = mergePinnedCharacters(result);
+
+    return result;
+}
+
+/**
  * Builds prompt for regenerating User Stats section
  * @param {string} guidance - Optional user guidance
  * @returns {Promise<Array>} Message array for generateRaw
@@ -396,8 +474,8 @@ export async function regenerateTrackerSectionDirect(sectionType, guidance) {
             committedTrackerData.infoBox = cleanedData;
             break;
         case 'presentCharacters':
-            // Merge pinned characters with regenerated data
-            const mergedData = mergePinnedCharacters(cleanedData);
+            // Merge frozen and pinned characters with regenerated data
+            const mergedData = mergeProtectedCharacters(cleanedData);
             lastGeneratedData.characterThoughts = mergedData;
             committedTrackerData.characterThoughts = mergedData;
             break;

@@ -356,6 +356,95 @@ function togglePinCharacter(characterName) {
 }
 
 /**
+ * Toggles the freeze status of a character
+ * Frozen characters have their state locked and won't be updated during regeneration
+ * @param {string} characterName - Name of the character to freeze/unfreeze
+ */
+function toggleFreezeCharacter(characterName) {
+    console.log(`[RPG Companion] Toggling freeze for character: ${characterName}`);
+
+    // Initialize frozenCharacters object if it doesn't exist
+    if (!extensionSettings.frozenCharacters) {
+        extensionSettings.frozenCharacters = {};
+    }
+
+    const lowerName = characterName.toLowerCase();
+
+    if (extensionSettings.frozenCharacters[lowerName]) {
+        // Character is frozen, unfreeze it
+        delete extensionSettings.frozenCharacters[lowerName];
+        console.log(`[RPG Companion] Unfroze character: ${characterName}`);
+        toastr.info(`${characterName} unfrozen - will update during regeneration`, 'RPG Companion');
+    } else {
+        // Character is not frozen, freeze it
+        // Store the current character data
+        const characterData = getCurrentCharacterData(characterName);
+        if (characterData) {
+            extensionSettings.frozenCharacters[lowerName] = characterData;
+            console.log(`[RPG Companion] Froze character: ${characterName}`);
+            toastr.success(`${characterName} frozen - state locked and protected from updates`, 'RPG Companion');
+        } else {
+            console.warn(`[RPG Companion] Could not find character data for: ${characterName}`);
+            toastr.error(`Could not freeze ${characterName} - character data not found`, 'RPG Companion');
+            return;
+        }
+    }
+
+    // Save settings
+    saveSettings();
+
+    // Re-render to update freeze button appearance
+    const scrollTop = $thoughtsContainer ? $thoughtsContainer.scrollTop() : 0;
+    renderThoughts();
+    if ($thoughtsContainer && scrollTop > 0) {
+        setTimeout(() => {
+            $thoughtsContainer.scrollTop(scrollTop);
+        }, 0);
+    }
+}
+
+/**
+ * Gets the current data for a specific character from lastGeneratedData
+ * @param {string} characterName - Name of the character
+ * @returns {string|null} The character's data block or null if not found
+ */
+function getCurrentCharacterData(characterName) {
+    if (!lastGeneratedData.characterThoughts) {
+        return null;
+    }
+
+    const lines = lastGeneratedData.characterThoughts.split('\n');
+    let currentCharName = null;
+    let currentCharBlock = [];
+    let foundCharacter = false;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+
+        if (line.startsWith('- ')) {
+            // If we were building a character block and it matches, save it
+            if (currentCharName && currentCharName.toLowerCase() === characterName.toLowerCase()) {
+                foundCharacter = true;
+                break;
+            }
+
+            // Start new character
+            currentCharName = line.substring(2).trim();
+            currentCharBlock = [lines[i]];
+        } else if (currentCharName) {
+            currentCharBlock.push(lines[i]);
+        }
+    }
+
+    // Check if the last character matches
+    if (!foundCharacter && currentCharName && currentCharName.toLowerCase() === characterName.toLowerCase()) {
+        foundCharacter = true;
+    }
+
+    return foundCharacter ? currentCharBlock.join('\n') : null;
+}
+
+/**
  * Renders character thoughts (Present Characters) panel.
  * Displays character cards with avatars, relationship badges, and traits.
  * Includes event listeners for editable character fields.
@@ -629,8 +718,16 @@ export function renderThoughts() {
                     ? 'Unpin this character (currently protected from regeneration removal)'
                     : 'Pin this character to prevent removal during regeneration';
 
+                // Check if character is frozen
+                const isFrozen = extensionSettings.frozenCharacters &&
+                    extensionSettings.frozenCharacters[char.name.toLowerCase()];
+                const freezeClass = isFrozen ? 'rpg-character-frozen' : '';
+                const freezeTitle = isFrozen
+                    ? 'Unfreeze this character (currently locked - no updates during regeneration)'
+                    : 'Freeze this character to lock their state and prevent any updates';
+
                 html += `
-                    <div class="rpg-character-card ${pinClass}" data-character-name="${escapedName}">
+                    <div class="rpg-character-card ${pinClass} ${freezeClass}" data-character-name="${escapedName}">
                         <div class="rpg-character-avatar rpg-avatar-upload ${isCurrentlyGenerating ? 'rpg-avatar-generating' : ''}" data-character="${escapedName}" title="Click to upload custom avatar&#10;${avatarRightClickAction}">
                             <img src="${characterPortrait}" alt="${escapedName}" onerror="this.style.opacity='0.5';this.onerror=null;" />
                             ${isCurrentlyGenerating ? '<div class="rpg-generating-overlay"><i class="fa-solid fa-spinner fa-spin"></i></div>' : ''}
@@ -642,6 +739,7 @@ export function renderThoughts() {
                                     <span class="rpg-character-emoji rpg-editable" contenteditable="true" data-character="${escapedName}" data-field="emoji" title="Click to edit emoji">${char.emoji}</span>
                                     <span class="rpg-character-name rpg-editable" contenteditable="true" data-character="${escapedName}" data-field="name" title="Click to edit name">${char.name}</span>
                                     <button class="rpg-character-pin ${pinClass}" data-character="${escapedName}" title="${pinTitle}">📌</button>
+                                    <button class="rpg-character-freeze ${freezeClass}" data-character="${escapedName}" title="${freezeTitle}">❄️</button>
                                     <button class="rpg-character-remove" data-character="${escapedName}" title="Remove this character from the panel">×</button>
                                 </div>
                 `;
@@ -847,6 +945,13 @@ export function renderThoughts() {
         e.stopPropagation(); // Prevent event bubbling
         const characterName = $(this).data('character');
         togglePinCharacter(characterName);
+    });
+
+    // Add event handler for character freezing
+    $thoughtsContainer.find('.rpg-character-freeze').on('click', function(e) {
+        e.stopPropagation(); // Prevent event bubbling
+        const characterName = $(this).data('character');
+        toggleFreezeCharacter(characterName);
     });
 
     // Add event handler for character removal

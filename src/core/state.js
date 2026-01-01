@@ -196,6 +196,7 @@ export let extensionSettings = {
     memoryMessagesToProcess: 16, // Number of messages to process per batch in memory recollection
     npcAvatars: {}, // Store custom avatar images for NPCs (key: character name, value: base64 data URI)
     pinnedCharacters: [], // Array of character names that should persist through regeneration
+    frozenCharacters: {}, // Map of character name -> frozen character data (prevents updates during regeneration)
     // Auto avatar generation settings
     autoGenerateAvatars: false, // Master toggle for auto-generating avatars
     avatarLLMCustomInstruction: '', // Custom instruction for LLM prompt generation
