@@ -416,8 +416,6 @@ function saveCharacterEditorChanges() {
     lastGeneratedData.characterThoughts = newData;
     committedTrackerData.characterThoughts = newData;
 
-    console.log('[RPG Character Editor] Saving character data:', newData);
-
     // Save to chat metadata
     saveChatData();
 
@@ -426,24 +424,7 @@ function saveCharacterEditorChanges() {
 
     // Then render once after a short delay to ensure modal is fully closed
     setTimeout(() => {
-        console.log('[RPG Character Editor] About to render after save...');
-        const $container = $('.rpg-thoughts-content');
-        console.log('[RPG Character Editor] Container before render:', $container.length, 'display:', $container.css('display'), 'flex-direction:', $container.css('flex-direction'));
-
         renderThoughts();
-
-        // Check layout after render
-        setTimeout(() => {
-            const $containerAfter = $('.rpg-thoughts-content');
-            const $cards = $('.rpg-character-card');
-            console.log('[RPG Character Editor] Container after render:', $containerAfter.length, 'display:', $containerAfter.css('display'), 'flex-direction:', $containerAfter.css('flex-direction'));
-            console.log('[RPG Character Editor] Character cards:', $cards.length);
-            $cards.each((i, card) => {
-                const $card = $(card);
-                console.log(`[RPG Character Editor] Card ${i}:`, 'display:', $card.css('display'), 'width:', $card.css('width'), 'float:', $card.css('float'));
-            });
-        }, 50);
-
         toastr.success('Character data saved successfully', 'RPG Companion');
     }, 100);
 }
