@@ -416,14 +416,17 @@ function saveCharacterEditorChanges() {
     lastGeneratedData.characterThoughts = newData;
     committedTrackerData.characterThoughts = newData;
 
-    // Save and re-render
+    // Save to chat metadata
     saveChatData();
-    renderThoughts();
 
-    // Close modal
-    closeCharacterEditor();
+    // Close modal first (without triggering forceLayoutRefresh)
+    $('#rpg-character-editor-modal').removeClass('is-open');
 
-    toastr.success('Character data saved successfully', 'RPG Companion');
+    // Then render once after a short delay to ensure modal is fully closed
+    setTimeout(() => {
+        renderThoughts();
+        toastr.success('Character data saved successfully', 'RPG Companion');
+    }, 100);
 }
 
 /**
