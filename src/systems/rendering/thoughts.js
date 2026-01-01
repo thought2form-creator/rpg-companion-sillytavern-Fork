@@ -314,6 +314,48 @@ function removeCharacter(characterName) {
 }
 
 /**
+ * Toggles the pin status of a character
+ * Pinned characters persist through regeneration even if LLM doesn't mention them
+ * @param {string} characterName - Name of the character to pin/unpin
+ */
+function togglePinCharacter(characterName) {
+    console.log(`[RPG Companion] Toggling pin for character: ${characterName}`);
+
+    // Initialize pinnedCharacters array if it doesn't exist
+    if (!extensionSettings.pinnedCharacters) {
+        extensionSettings.pinnedCharacters = [];
+    }
+
+    const index = extensionSettings.pinnedCharacters.findIndex(
+        name => name.toLowerCase() === characterName.toLowerCase()
+    );
+
+    if (index >= 0) {
+        // Character is pinned, unpin it
+        extensionSettings.pinnedCharacters.splice(index, 1);
+        console.log(`[RPG Companion] Unpinned character: ${characterName}`);
+        toastr.info(`${characterName} unpinned`, 'RPG Companion');
+    } else {
+        // Character is not pinned, pin it
+        extensionSettings.pinnedCharacters.push(characterName);
+        console.log(`[RPG Companion] Pinned character: ${characterName}`);
+        toastr.success(`${characterName} pinned - will persist through regeneration`, 'RPG Companion');
+    }
+
+    // Save settings
+    saveSettings();
+
+    // Re-render to update pin button appearance
+    const scrollTop = $thoughtsContainer ? $thoughtsContainer.scrollTop() : 0;
+    renderThoughts();
+    if ($thoughtsContainer && scrollTop > 0) {
+        setTimeout(() => {
+            $thoughtsContainer.scrollTop(scrollTop);
+        }, 0);
+    }
+}
+
+/**
  * Renders character thoughts (Present Characters) panel.
  * Displays character cards with avatars, relationship badges, and traits.
  * Includes event listeners for editable character fields.
@@ -575,12 +617,20 @@ export function renderThoughts() {
                 const isCurrentlyGenerating = isGenerating(char.name);
 
                 // Determine right-click action text based on auto-generate setting
-                const avatarRightClickAction = extensionSettings.autoGenerateAvatars 
-                    ? 'Right-click to regenerate avatar' 
+                const avatarRightClickAction = extensionSettings.autoGenerateAvatars
+                    ? 'Right-click to regenerate avatar'
                     : 'Right-click to delete avatar';
 
+                // Check if character is pinned
+                const isPinned = extensionSettings.pinnedCharacters &&
+                    extensionSettings.pinnedCharacters.some(name => name.toLowerCase() === char.name.toLowerCase());
+                const pinClass = isPinned ? 'rpg-character-pinned' : '';
+                const pinTitle = isPinned
+                    ? 'Unpin this character (currently protected from regeneration removal)'
+                    : 'Pin this character to prevent removal during regeneration';
+
                 html += `
-                    <div class="rpg-character-card" data-character-name="${escapedName}">
+                    <div class="rpg-character-card ${pinClass}" data-character-name="${escapedName}">
                         <div class="rpg-character-avatar rpg-avatar-upload ${isCurrentlyGenerating ? 'rpg-avatar-generating' : ''}" data-character="${escapedName}" title="Click to upload custom avatar&#10;${avatarRightClickAction}">
                             <img src="${characterPortrait}" alt="${escapedName}" onerror="this.style.opacity='0.5';this.onerror=null;" />
                             ${isCurrentlyGenerating ? '<div class="rpg-generating-overlay"><i class="fa-solid fa-spinner fa-spin"></i></div>' : ''}
@@ -591,6 +641,7 @@ export function renderThoughts() {
                                 <div class="rpg-character-header">
                                     <span class="rpg-character-emoji rpg-editable" contenteditable="true" data-character="${escapedName}" data-field="emoji" title="Click to edit emoji">${char.emoji}</span>
                                     <span class="rpg-character-name rpg-editable" contenteditable="true" data-character="${escapedName}" data-field="name" title="Click to edit name">${char.name}</span>
+                                    <button class="rpg-character-pin ${pinClass}" data-character="${escapedName}" title="${pinTitle}">📌</button>
                                     <button class="rpg-character-remove" data-character="${escapedName}" title="Remove this character from the panel">×</button>
                                 </div>
                 `;
@@ -789,6 +840,13 @@ export function renderThoughts() {
                 $thoughtsContainer.scrollTop(scrollTop);
             }, 0);
         }
+    });
+
+    // Add event handler for character pinning
+    $thoughtsContainer.find('.rpg-character-pin').on('click', function(e) {
+        e.stopPropagation(); // Prevent event bubbling
+        const characterName = $(this).data('character');
+        togglePinCharacter(characterName);
     });
 
     // Add event handler for character removal

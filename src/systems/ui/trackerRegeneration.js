@@ -11,6 +11,89 @@ import { getContext } from '../../../../../../extensions.js';
 const { generateRaw } = SillyTavern.getContext();
 
 /**
+ * Merges pinned characters from old data with newly regenerated data
+ * Pinned characters that aren't in the new data will be added back
+ * @param {string} newData - Newly regenerated Present Characters data
+ * @returns {string} Merged data with pinned characters preserved
+ */
+function mergePinnedCharacters(newData) {
+    // If no pinned characters, return new data as-is
+    if (!extensionSettings.pinnedCharacters || extensionSettings.pinnedCharacters.length === 0) {
+        return newData;
+    }
+
+    // Parse existing character data to get pinned character info
+    const oldData = lastGeneratedData.characterThoughts || '';
+    const oldLines = oldData.split('\n');
+    const pinnedCharacterData = {}; // Map of character name -> full character block
+
+    let currentCharName = null;
+    let currentCharBlock = [];
+
+    // Extract pinned character blocks from old data
+    for (const line of oldLines) {
+        const trimmed = line.trim();
+
+        if (trimmed.startsWith('- ')) {
+            // Save previous character if it was pinned
+            if (currentCharName && extensionSettings.pinnedCharacters.some(
+                name => name.toLowerCase() === currentCharName.toLowerCase()
+            )) {
+                pinnedCharacterData[currentCharName.toLowerCase()] = currentCharBlock.join('\n');
+            }
+
+            // Start new character
+            currentCharName = trimmed.substring(2).trim();
+            currentCharBlock = [line];
+        } else if (currentCharName) {
+            currentCharBlock.push(line);
+        }
+    }
+
+    // Save last character if pinned
+    if (currentCharName && extensionSettings.pinnedCharacters.some(
+        name => name.toLowerCase() === currentCharName.toLowerCase()
+    )) {
+        pinnedCharacterData[currentCharName.toLowerCase()] = currentCharBlock.join('\n');
+    }
+
+    // Parse new data to see which pinned characters are missing
+    const newLines = newData.split('\n');
+    const newCharacterNames = new Set();
+
+    for (const line of newLines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('- ')) {
+            const name = trimmed.substring(2).trim();
+            newCharacterNames.add(name.toLowerCase());
+        }
+    }
+
+    // Find pinned characters that are missing from new data
+    const missingPinnedChars = [];
+    for (const pinnedName of extensionSettings.pinnedCharacters) {
+        if (!newCharacterNames.has(pinnedName.toLowerCase()) &&
+            pinnedCharacterData[pinnedName.toLowerCase()]) {
+            missingPinnedChars.push(pinnedCharacterData[pinnedName.toLowerCase()]);
+        }
+    }
+
+    // If no missing pinned characters, return new data as-is
+    if (missingPinnedChars.length === 0) {
+        return newData;
+    }
+
+    // Append missing pinned characters to the end
+    let result = newData.trimEnd();
+    for (const charBlock of missingPinnedChars) {
+        result += '\n\n' + charBlock;
+    }
+
+    console.log(`[RPG Companion] Merged ${missingPinnedChars.length} pinned character(s) back into regenerated data`);
+    return result;
+}
+
+/**
  * Builds prompt for regenerating User Stats section
  * @param {string} guidance - Optional user guidance
  * @returns {Promise<Array>} Message array for generateRaw
@@ -313,8 +396,10 @@ export async function regenerateTrackerSectionDirect(sectionType, guidance) {
             committedTrackerData.infoBox = cleanedData;
             break;
         case 'presentCharacters':
-            lastGeneratedData.characterThoughts = cleanedData;
-            committedTrackerData.characterThoughts = cleanedData;
+            // Merge pinned characters with regenerated data
+            const mergedData = mergePinnedCharacters(cleanedData);
+            lastGeneratedData.characterThoughts = mergedData;
+            committedTrackerData.characterThoughts = mergedData;
             break;
     }
 
