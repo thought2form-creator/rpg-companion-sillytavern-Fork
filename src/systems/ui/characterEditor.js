@@ -22,6 +22,20 @@ import {
 let savedCharacterStates = {};
 
 /**
+ * Forces a layout refresh to fix character card stacking issues
+ * This is needed after modals are removed from the DOM
+ */
+function forceLayoutRefresh() {
+    const $thoughtsContent = $('.rpg-thoughts-content');
+    if ($thoughtsContent.length > 0) {
+        // Force a reflow by reading offsetHeight
+        $thoughtsContent[0].offsetHeight;
+        // Re-render the Present Characters section
+        renderThoughts();
+    }
+}
+
+/**
  * Opens the advanced character editor modal
  */
 export function openCharacterEditor() {
@@ -335,6 +349,8 @@ function attachCharacterEditorHandlers() {
  */
 function closeCharacterEditor() {
     $('#rpg-character-editor-modal').removeClass('is-open');
+    // Force layout refresh after modal closes to prevent character card stacking
+    setTimeout(() => forceLayoutRefresh(), 250);
 }
 
 /**
@@ -780,7 +796,11 @@ function showGuidanceModal(title, description, placeholder, callback) {
     // Event handlers
     $('#rpg-guidance-close, #rpg-guidance-cancel').on('click', () => {
         $('#rpg-guidance-modal').removeClass('is-open');
-        setTimeout(() => $('#rpg-guidance-modal').remove(), 200);
+        setTimeout(() => {
+            $('#rpg-guidance-modal').remove();
+            // Force layout recalculation to fix character card stacking bug
+            forceLayoutRefresh();
+        }, 200);
     });
 
     $('#rpg-guidance-confirm').on('click', () => {
@@ -788,7 +808,11 @@ function showGuidanceModal(title, description, placeholder, callback) {
 
         // Close modal
         $('#rpg-guidance-modal').removeClass('is-open');
-        setTimeout(() => $('#rpg-guidance-modal').remove(), 200);
+        setTimeout(() => {
+            $('#rpg-guidance-modal').remove();
+            // Force layout recalculation to fix character card stacking bug
+            forceLayoutRefresh();
+        }, 200);
 
         // Call callback with guidance
         callback(guidance);
