@@ -45,44 +45,17 @@ export function renderInventorySubTabs(activeTab = 'onPerson') {
 }
 
 /**
- * Renders the "On Person" inventory view with list or grid display
- * @param {string} onPersonItems - Current on-person items (comma-separated string)
+ * Renders the "On Person" inventory view with collapsible locations (v3 format)
+ * @param {Object.<string, string>} onPerson - On-person items by location
+ * @param {string[]} collapsedLocations - Array of collapsed location names
  * @param {string} viewMode - View mode ('list' or 'grid')
- * @returns {string} HTML for on-person view with items and add button
+ * @returns {string} HTML for on-person view with all locations
  */
-export function renderOnPersonView(onPersonItems, viewMode = 'list') {
-    const items = parseItems(onPersonItems);
-
-    let itemsHtml = '';
-    if (items.length === 0) {
-        itemsHtml = `<div class="rpg-inventory-empty" data-i18n-key="inventory.onPerson.empty">${i18n.getTranslation('inventory.onPerson.empty')}</div>`;
-    } else {
-        if (viewMode === 'grid') {
-            // Grid view: card-style items
-            itemsHtml = items.map((item, index) => `
-                <div class="rpg-item-card" data-field="onPerson" data-index="${index}">
-                    <button class="rpg-item-remove" data-action="remove-item" data-field="onPerson" data-index="${index}" title="Remove item">
-                        <i class="fa-solid fa-times"></i>
-                    </button>
-                    <span class="rpg-item-name rpg-editable" contenteditable="true" data-field="onPerson" data-index="${index}" title="Click to edit">${escapeHtml(item)}</span>
-                </div>
-            `).join('');
-        } else {
-            // List view: full-width rows
-            itemsHtml = items.map((item, index) => `
-                <div class="rpg-item-row" data-field="onPerson" data-index="${index}">
-                    <span class="rpg-item-name rpg-editable" contenteditable="true" data-field="onPerson" data-index="${index}" title="Click to edit">${escapeHtml(item)}</span>
-                    <button class="rpg-item-remove" data-action="remove-item" data-field="onPerson" data-index="${index}" title="Remove item">
-                        <i class="fa-solid fa-times"></i>
-                    </button>
-                </div>
-            `).join('');
-        }
-    }
-
+export function renderOnPersonView(onPerson, collapsedLocations = [], viewMode = 'list') {
+    const locations = Object.keys(onPerson || {});
     const listViewClass = viewMode === 'list' ? 'rpg-item-list-view' : 'rpg-item-grid-view';
 
-    return `
+    let html = `
         <div class="rpg-inventory-section" data-section="onPerson">
             <div class="rpg-inventory-header">
                 <h4 data-i18n-key="inventory.onPerson.title">${i18n.getTranslation('inventory.onPerson.title')}</h4>
@@ -95,29 +68,110 @@ export function renderOnPersonView(onPersonItems, viewMode = 'list') {
                             <i class="fa-solid fa-th"></i>
                         </button>
                     </div>
-                    <button class="rpg-inventory-add-btn" data-action="add-item" data-field="onPerson" title="Add new item">
-                        <i class="fa-solid fa-plus"></i> <span data-i18n-key="inventory.onPerson.addItemButton">${i18n.getTranslation('inventory.onPerson.addItemButton')}</span>
+                    <button class="rpg-inventory-add-btn" data-action="add-location" data-field="onPerson" title="Add new location">
+                        <i class="fa-solid fa-plus"></i> <span data-i18n-key="inventory.onPerson.addLocationButton">${i18n.getTranslation('inventory.onPerson.addLocationButton')}</span>
                     </button>
                 </div>
             </div>
             <div class="rpg-inventory-content">
-                <div class="rpg-inline-form" id="rpg-add-item-form-onPerson" style="display: none;">
-                    <input type="text" class="rpg-inline-input" id="rpg-new-item-onPerson" placeholder="${i18n.getTranslation('inventory.onPerson.addItemPlaceholder')}" data-i18n-placeholder-key="inventory.onPerson.addItemPlaceholder" />
+                <div class="rpg-inline-form" id="rpg-add-location-form-onPerson" style="display: none;">
+                    <input type="text" class="rpg-inline-input" id="rpg-new-location-name-onPerson" placeholder="${i18n.getTranslation('inventory.onPerson.addLocationPlaceholder')}" data-i18n-placeholder-key="inventory.onPerson.addLocationPlaceholder" />
                     <div class="rpg-inline-buttons">
-                        <button class="rpg-inline-btn rpg-inline-cancel" data-action="cancel-add-item" data-field="onPerson">
+                        <button class="rpg-inline-btn rpg-inline-cancel" data-action="cancel-add-location" data-field="onPerson">
                             <i class="fa-solid fa-times"></i> <span data-i18n-key="global.cancel">${i18n.getTranslation('global.cancel')}</span>
                         </button>
-                        <button class="rpg-inline-btn rpg-inline-save" data-action="save-add-item" data-field="onPerson">
-                            <i class="fa-solid fa-check"></i> <span data-i18n-key="global.add">${i18n.getTranslation('global.add')}</span>
+                        <button class="rpg-inline-btn rpg-inline-save" data-action="save-add-location" data-field="onPerson">
+                            <i class="fa-solid fa-check"></i> <span data-i18n-key="inventory.onPerson.saveButton">${i18n.getTranslation('inventory.onPerson.saveButton')}</span>
                         </button>
                     </div>
                 </div>
-                <div class="rpg-item-list ${listViewClass}">
-                    ${itemsHtml}
+    `;
+
+    if (locations.length === 0) {
+        html += `
+                <div class="rpg-inventory-empty" data-i18n-key="inventory.onPerson.empty">
+                    ${i18n.getTranslation('inventory.onPerson.empty')}
                 </div>
+        `;
+    } else {
+        for (const location of locations) {
+            const itemString = onPerson[location];
+            const items = parseItems(itemString);
+            const isCollapsed = collapsedLocations.includes(location);
+            const locationId = getLocationId(location);
+
+            let itemsHtml = '';
+            if (items.length === 0) {
+                itemsHtml = `<div class="rpg-inventory-empty" data-i18n-key="inventory.onPerson.noItems">${i18n.getTranslation('inventory.onPerson.noItems')}</div>`;
+            } else {
+                if (viewMode === 'grid') {
+                    // Grid view: card-style items
+                    itemsHtml = items.map((item, index) => `
+                        <div class="rpg-item-card" data-field="onPerson" data-location="${escapeHtml(location)}" data-index="${index}">
+                            <button class="rpg-item-remove" data-action="remove-item" data-field="onPerson" data-location="${escapeHtml(location)}" data-index="${index}" title="Remove item">
+                                <i class="fa-solid fa-times"></i>
+                            </button>
+                            <span class="rpg-item-name rpg-editable" contenteditable="true" data-field="onPerson" data-location="${escapeHtml(location)}" data-index="${index}" title="Click to edit">${escapeHtml(item)}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    // List view: full-width rows
+                    itemsHtml = items.map((item, index) => `
+                        <div class="rpg-item-row" data-field="onPerson" data-location="${escapeHtml(location)}" data-index="${index}">
+                            <span class="rpg-item-name rpg-editable" contenteditable="true" data-field="onPerson" data-location="${escapeHtml(location)}" data-index="${index}" title="Click to edit">${escapeHtml(item)}</span>
+                            <button class="rpg-item-remove" data-action="remove-item" data-field="onPerson" data-location="${escapeHtml(location)}" data-index="${index}" title="Remove item">
+                                <i class="fa-solid fa-times"></i>
+                            </button>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            html += `
+                <div class="rpg-storage-location ${isCollapsed ? 'collapsed' : ''}" data-location="${escapeHtml(location)}" data-field="onPerson">
+                    <div class="rpg-storage-header">
+                        <button class="rpg-storage-toggle" data-action="toggle-location" data-field="onPerson" data-location="${escapeHtml(location)}">
+                            <i class="fa-solid fa-chevron-${isCollapsed ? 'right' : 'down'}"></i>
+                        </button>
+                        <h5 class="rpg-storage-name">${escapeHtml(location)}</h5>
+                        <div class="rpg-storage-actions">
+                            <button class="rpg-inventory-remove-btn" data-action="remove-location" data-field="onPerson" data-location="${escapeHtml(location)}" title="Remove this location">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="rpg-storage-content" ${isCollapsed ? 'style="display:none;"' : ''}>
+                        <div class="rpg-inline-form" id="rpg-add-item-form-onPerson-${locationId}" style="display: none;">
+                            <input type="text" class="rpg-inline-input rpg-location-item-input" data-field="onPerson" data-location="${escapeHtml(location)}" placeholder="${i18n.getTranslation('inventory.onPerson.addItemToLocationPlaceholder')}" data-i18n-placeholder-key="inventory.onPerson.addItemToLocationPlaceholder" />
+                            <div class="rpg-inline-buttons">
+                                <button class="rpg-inline-btn rpg-inline-cancel" data-action="cancel-add-item" data-field="onPerson" data-location="${escapeHtml(location)}">
+                                    <i class="fa-solid fa-times"></i> <span data-i18n-key="global.cancel">${i18n.getTranslation('global.cancel')}</span>
+                                </button>
+                                <button class="rpg-inline-btn rpg-inline-save" data-action="save-add-item" data-field="onPerson" data-location="${escapeHtml(location)}">
+                                    <i class="fa-solid fa-check"></i> <span data-i18n-key="global.add">${i18n.getTranslation('global.add')}</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="rpg-item-list ${listViewClass}">
+                            ${itemsHtml}
+                        </div>
+                        <div class="rpg-storage-add-item-container">
+                            <button class="rpg-inventory-add-btn" data-action="add-item" data-field="onPerson" data-location="${escapeHtml(location)}" title="Add item to this location">
+                                <i class="fa-solid fa-plus"></i> <span data-i18n-key="inventory.onPerson.addItemButton">${i18n.getTranslation('inventory.onPerson.addItemButton')}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    html += `
             </div>
         </div>
     `;
+
+    return html;
 }
 
 /**
@@ -344,7 +398,7 @@ export function renderAssetsView(assets, viewMode = 'list') {
 
 /**
  * Generates inventory HTML (internal helper)
- * @param {InventoryV2} inventory - Inventory data to render
+ * @param {InventoryV3} inventory - Inventory data to render
  * @param {Object} options - Rendering options
  * @param {string} options.activeSubTab - Currently active sub-tab ('onPerson', 'stored', 'assets')
  * @param {string[]} options.collapsedLocations - Collapsed storage locations
@@ -356,36 +410,48 @@ function generateInventoryHTML(inventory, options = {}) {
         collapsedLocations = []
     } = options;
 
-    // Handle legacy v1 format - convert to v2 for display
-    let v2Inventory = inventory;
+    // Handle legacy formats - convert to v3 for display
+    let v3Inventory = inventory;
     if (typeof inventory === 'string') {
-        v2Inventory = {
-            version: 2,
-            onPerson: inventory,
+        // v1 format
+        v3Inventory = {
+            version: 3,
+            onPerson: { "On Person": inventory },
             stored: {},
             assets: 'None'
         };
+    } else if (inventory && inventory.version === 2) {
+        // v2 format - migrate onPerson from string to object
+        v3Inventory = {
+            version: 3,
+            onPerson: {},
+            stored: inventory.stored || {},
+            assets: inventory.assets || 'None'
+        };
+        if (inventory.onPerson && typeof inventory.onPerson === 'string' && inventory.onPerson.trim() && inventory.onPerson.toLowerCase() !== 'none') {
+            v3Inventory.onPerson["On Person"] = inventory.onPerson;
+        }
     }
 
-    // Ensure v2 structure has all required fields
-    if (!v2Inventory || typeof v2Inventory !== 'object') {
-        v2Inventory = {
-            version: 2,
-            onPerson: 'None',
+    // Ensure v3 structure has all required fields
+    if (!v3Inventory || typeof v3Inventory !== 'object') {
+        v3Inventory = {
+            version: 3,
+            onPerson: {},
             stored: {},
             assets: 'None'
         };
     }
 
     // Additional safety check: ensure required properties exist and are correct type
-    if (!v2Inventory.onPerson || typeof v2Inventory.onPerson !== 'string') {
-        v2Inventory.onPerson = 'None';
+    if (!v3Inventory.onPerson || typeof v3Inventory.onPerson !== 'object' || Array.isArray(v3Inventory.onPerson)) {
+        v3Inventory.onPerson = {};
     }
-    if (!v2Inventory.stored || typeof v2Inventory.stored !== 'object' || Array.isArray(v2Inventory.stored)) {
-        v2Inventory.stored = {};
+    if (!v3Inventory.stored || typeof v3Inventory.stored !== 'object' || Array.isArray(v3Inventory.stored)) {
+        v3Inventory.stored = {};
     }
-    if (!v2Inventory.assets || typeof v2Inventory.assets !== 'string') {
-        v2Inventory.assets = 'None';
+    if (!v3Inventory.assets || typeof v3Inventory.assets !== 'string') {
+        v3Inventory.assets = 'None';
     }
 
     let html = `
@@ -404,16 +470,16 @@ function generateInventoryHTML(inventory, options = {}) {
     // Render the active view
     switch (activeSubTab) {
         case 'onPerson':
-            html += renderOnPersonView(v2Inventory.onPerson, viewModes.onPerson);
+            html += renderOnPersonView(v3Inventory.onPerson, collapsedLocations, viewModes.onPerson);
             break;
         case 'stored':
-            html += renderStoredView(v2Inventory.stored, collapsedLocations, viewModes.stored);
+            html += renderStoredView(v3Inventory.stored, collapsedLocations, viewModes.stored);
             break;
         case 'assets':
-            html += renderAssetsView(v2Inventory.assets, viewModes.assets);
+            html += renderAssetsView(v3Inventory.assets, viewModes.assets);
             break;
         default:
-            html += renderOnPersonView(v2Inventory.onPerson, viewModes.onPerson);
+            html += renderOnPersonView(v3Inventory.onPerson, collapsedLocations, viewModes.onPerson);
     }
 
     html += `

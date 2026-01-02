@@ -1,24 +1,26 @@
 /**
  * Inventory Parser Module
- * Extracts v2 inventory data from AI-generated text
+ * Extracts v3 inventory data from AI-generated text
  */
 
 // Type imports
+/** @typedef {import('../../types/inventory.js').InventoryV3} InventoryV3 */
 /** @typedef {import('../../types/inventory.js').InventoryV2} InventoryV2 */
 
 /**
- * Extracts inventory data from AI-generated stats text in v2 multi-line format.
+ * Extracts inventory data from AI-generated stats text in v3 multi-line format.
  *
  * Expected format from AI:
  * ```
- * On Person: Sword (equipped), 3x Health Potions, Leather Armor
- * Stored - Home: Spare clothes, Tools, 50 gold coins
+ * On Person - Equipped: Sword, Leather Armor
+ * On Person - Pockets: 3x Health Potions, 50 gold coins
+ * Stored - Home: Spare clothes, Tools
  * Stored - Bank: Family heirloom, Important documents
  * Assets: Motorcycle (garage), Downtown apartment (owned)
  * ```
  *
  * @param {string} statsText - Raw stats text from AI response
- * @returns {InventoryV2|null} Parsed inventory v2 object or null if not found
+ * @returns {InventoryV3|null} Parsed inventory v3 object or null if not found
  */
 export function extractInventoryData(statsText) {
     if (!statsText || typeof statsText !== 'string') {
@@ -26,8 +28,8 @@ export function extractInventoryData(statsText) {
     }
 
     const result = {
-        version: 2,
-        onPerson: "None",
+        version: 3,
+        onPerson: {},
         stored: {},
         assets: "None"
     };
@@ -40,11 +42,15 @@ export function extractInventoryData(statsText) {
     for (const line of lines) {
         const trimmed = line.trim();
 
-        // Parse "On Person: ..." line
-        const onPersonMatch = trimmed.match(/^On Person:\s*(.+)$/i);
+        // Parse "On Person - [Location]: ..." lines (v3 format)
+        const onPersonMatch = trimmed.match(/^On Person\s*-\s*([^:]+):\s*(.+)$/i);
         if (onPersonMatch) {
-            result.onPerson = onPersonMatch[1].trim() || "None";
-            foundAnyInventoryData = true;
+            const locationName = onPersonMatch[1].trim();
+            const items = onPersonMatch[2].trim();
+            if (locationName && items) {
+                result.onPerson[locationName] = items;
+                foundAnyInventoryData = true;
+            }
             continue;
         }
 
@@ -102,26 +108,26 @@ export function extractLegacyInventory(text) {
 }
 
 /**
- * Main inventory extraction function that tries v2 format first, then falls back to v1.
- * Converts v1 format to v2 automatically if found.
+ * Main inventory extraction function that tries v3 format first, then falls back to v1.
+ * Converts v1 format to v3 automatically if found.
  *
  * @param {string} statsText - Raw stats text from AI response
- * @returns {InventoryV2|null} Parsed inventory in v2 format or null
+ * @returns {InventoryV3|null} Parsed inventory in v3 format or null
  */
 export function extractInventory(statsText) {
-    // Try v2 format first
-    const v2Data = extractInventoryData(statsText);
-    if (v2Data) {
-        return v2Data;
+    // Try v3 format first
+    const v3Data = extractInventoryData(statsText);
+    if (v3Data) {
+        return v3Data;
     }
 
-    // Fallback to v1 format and convert to v2
+    // Fallback to v1 format and convert to v3
     const v1Data = extractLegacyInventory(statsText);
     if (v1Data) {
-        // Convert v1 string to v2 format (place in onPerson)
+        // Convert v1 string to v3 format (place in onPerson with default location)
         return {
-            version: 2,
-            onPerson: v1Data,
+            version: 3,
+            onPerson: { "On Person": v1Data },
             stored: {},
             assets: "None"
         };

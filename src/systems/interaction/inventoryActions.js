@@ -229,13 +229,21 @@ export function removeItem(field, itemIndex, location) {
     renderInventory();
 }/**
  * Shows the inline form for adding a new storage location.
+ * @param {string} field - Field name ('onPerson' or 'stored')
  */
-export function showAddLocationForm() {
-    const form = $('#rpg-add-location-form');
-    const input = $('#rpg-new-location-name');
+export function showAddLocationForm(field = 'stored') {
+    const formId = field === 'onPerson' ? 'rpg-add-location-form-onPerson' : 'rpg-add-location-form';
+    const inputId = field === 'onPerson' ? 'rpg-new-location-name-onPerson' : 'rpg-new-location-name';
+
+    const form = $(`#${formId}`);
+    const input = $(`#${inputId}`);
 
     // Track in state
-    openForms.addLocation = true;
+    if (field === 'onPerson') {
+        openForms.addLocationOnPerson = true;
+    } else {
+        openForms.addLocation = true;
+    }
 
     form.show();
     input.val('').focus();
@@ -243,13 +251,21 @@ export function showAddLocationForm() {
 
 /**
  * Hides the inline form for adding a new storage location.
+ * @param {string} field - Field name ('onPerson' or 'stored')
  */
-export function hideAddLocationForm() {
-    const form = $('#rpg-add-location-form');
-    const input = $('#rpg-new-location-name');
+export function hideAddLocationForm(field = 'stored') {
+    const formId = field === 'onPerson' ? 'rpg-add-location-form-onPerson' : 'rpg-add-location-form';
+    const inputId = field === 'onPerson' ? 'rpg-new-location-name-onPerson' : 'rpg-new-location-name';
+
+    const form = $(`#${formId}`);
+    const input = $(`#${inputId}`);
 
     // Clear from state
-    openForms.addLocation = false;
+    if (field === 'onPerson') {
+        openForms.addLocationOnPerson = false;
+    } else {
+        openForms.addLocation = false;
+    }
 
     form.hide();
     input.val('');
@@ -257,14 +273,16 @@ export function hideAddLocationForm() {
 
 /**
  * Saves a new storage location from the inline form.
+ * @param {string} field - Field name ('onPerson' or 'stored')
  */
-export function saveAddLocation() {
+export function saveAddLocation(field = 'stored') {
     const inventory = extensionSettings.userStats.inventory;
-    const input = $('#rpg-new-location-name');
+    const inputId = field === 'onPerson' ? 'rpg-new-location-name-onPerson' : 'rpg-new-location-name';
+    const input = $(`#${inputId}`);
     const rawLocationName = input.val().trim();
 
     if (!rawLocationName) {
-        hideAddLocationForm();
+        hideAddLocationForm(field);
         return;
     }
 
@@ -272,18 +290,21 @@ export function saveAddLocation() {
     const locationName = sanitizeLocationName(rawLocationName);
     if (!locationName) {
         alert('Invalid location name. Avoid special names like "__proto__" or "constructor".');
-        hideAddLocationForm();
+        hideAddLocationForm(field);
         return;
     }
 
+    // Get the target object (onPerson or stored)
+    const targetObj = field === 'onPerson' ? inventory.onPerson : inventory.stored;
+
     // Check for duplicate
-    if (inventory.stored[locationName]) {
-        alert(`Storage location "${locationName}" already exists.`);
+    if (targetObj[locationName]) {
+        alert(`Location "${locationName}" already exists.`);
         return;
     }
 
     // Create new location with default "None"
-    inventory.stored[locationName] = 'None';
+    targetObj[locationName] = 'None';
 
     updateLastGeneratedDataInventory();
     saveSettings();
@@ -291,7 +312,7 @@ export function saveAddLocation() {
     updateMessageSwipeData();
 
     // Hide form and re-render
-    hideAddLocationForm();
+    hideAddLocationForm(field);
     renderInventory();
 }
 
@@ -330,14 +351,13 @@ export function hideRemoveConfirmation(locationName) {
 /**
  * Confirms and removes a storage location from the inventory.
  * @param {string} locationName - Name of location to remove
+ * @param {string} field - Field name ('onPerson' or 'stored')
  */
-export function confirmRemoveLocation(locationName) {
-    // console.log('[RPG Companion] DEBUG confirmRemoveLocation called for:', locationName);
+export function confirmRemoveLocation(locationName, field = 'stored') {
     const inventory = extensionSettings.userStats.inventory;
-    // console.log('[RPG Companion] DEBUG inventory.stored before deletion:', inventory.stored);
+    const targetObj = field === 'onPerson' ? inventory.onPerson : inventory.stored;
 
-    delete inventory.stored[locationName];
-    // console.log('[RPG Companion] DEBUG inventory.stored after deletion:', inventory.stored);
+    delete targetObj[locationName];
 
     // Remove from collapsed list if present
     const index = collapsedLocations.indexOf(locationName);
@@ -351,7 +371,6 @@ export function confirmRemoveLocation(locationName) {
     updateMessageSwipeData();
 
     // Re-render inventory UI
-    // console.log('[RPG Companion] DEBUG calling renderInventory()');
     renderInventory();
 }/**
  * Toggles the collapsed state of a storage location section.
@@ -471,26 +490,37 @@ export function initInventoryEventListeners() {
     // Add location button - shows inline form
     $(document).on('click', '.rpg-inventory-add-btn[data-action="add-location"]', function(e) {
         e.preventDefault();
-        showAddLocationForm();
+        const field = $(this).data('field') || 'stored';
+        showAddLocationForm(field);
     });
 
     // Add location inline form - save button
     $(document).on('click', '.rpg-inline-btn[data-action="save-add-location"]', function(e) {
         e.preventDefault();
-        saveAddLocation();
+        const field = $(this).data('field') || 'stored';
+        saveAddLocation(field);
     });
 
     // Add location inline form - cancel button
     $(document).on('click', '.rpg-inline-btn[data-action="cancel-add-location"]', function(e) {
         e.preventDefault();
-        hideAddLocationForm();
+        const field = $(this).data('field') || 'stored';
+        hideAddLocationForm(field);
     });
 
-    // Add location inline form - enter key to save
+    // Add location inline form - enter key to save (stored)
     $(document).on('keypress', '#rpg-new-location-name', function(e) {
         if (e.which === 13) { // Enter key
             e.preventDefault();
-            saveAddLocation();
+            saveAddLocation('stored');
+        }
+    });
+
+    // Add location inline form - enter key to save (onPerson)
+    $(document).on('keypress', '#rpg-new-location-name-onPerson', function(e) {
+        if (e.which === 13) { // Enter key
+            e.preventDefault();
+            saveAddLocation('onPerson');
         }
     });
 
@@ -498,6 +528,7 @@ export function initInventoryEventListeners() {
     $(document).on('click', '.rpg-inventory-remove-btn[data-action="remove-location"]', function(e) {
         e.preventDefault();
         const location = $(this).data('location');
+        const field = $(this).data('field') || 'stored';
         showRemoveConfirmation(location);
     });
 
@@ -505,7 +536,8 @@ export function initInventoryEventListeners() {
     $(document).on('click', '.rpg-inline-btn[data-action="confirm-remove-location"]', function(e) {
         e.preventDefault();
         const location = $(this).data('location');
-        confirmRemoveLocation(location);
+        const field = $(this).data('field') || 'stored';
+        confirmRemoveLocation(location, field);
     });
 
     // Remove location inline confirmation - cancel button

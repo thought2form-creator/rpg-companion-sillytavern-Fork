@@ -4,6 +4,15 @@
  */
 
 /**
+ * Version 3 inventory structure with categorized storage for all sections
+ * @typedef {Object} InventoryV3
+ * @property {number} version - Schema version (always 3)
+ * @property {Object.<string, string>} onPerson - Items on person organized by location (e.g., "Equipped", "Pockets", "Backpack")
+ * @property {Object.<string, string>} stored - Items stored at named locations (location name → plaintext list)
+ * @property {string} assets - Character's vehicles, property, and major possessions (plaintext list)
+ */
+
+/**
  * Version 2 inventory structure with categorized storage
  * @typedef {Object} InventoryV2
  * @property {number} version - Schema version (always 2)

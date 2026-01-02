@@ -96,10 +96,10 @@ export const defaultSettings = {
         arousal: 0,
         mood: '😐',
         conditions: 'None',
-        /** @type {InventoryV2} */
+        /** @type {InventoryV3} */
         inventory: {
-            version: 2,
-            onPerson: "None",
+            version: 3,
+            onPerson: {},
             stored: {},
             assets: "None"
         }

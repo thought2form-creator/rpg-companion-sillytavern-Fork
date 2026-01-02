@@ -197,10 +197,10 @@ export function loadChatData() {
                 arousal: 0,
                 mood: '😐',
                 conditions: 'None',
-                // Use v2 inventory format for defaults
+                // Use v3 inventory format for defaults
                 inventory: {
-                    version: 2,
-                    onPerson: "None",
+                    version: 3,
+                    onPerson: {},
                     stored: {},
                     assets: "None"
                 }
@@ -286,8 +286,8 @@ function validateInventoryStructure(inventory, source) {
     if (!inventory || typeof inventory !== 'object') {
         console.error(`[RPG Companion] Invalid inventory from ${source}, resetting to defaults`);
         extensionSettings.userStats.inventory = {
-            version: 2,
-            onPerson: "None",
+            version: 3,
+            onPerson: {},
             stored: {},
             assets: "None"
         };
@@ -297,23 +297,23 @@ function validateInventoryStructure(inventory, source) {
 
     let needsSave = false;
 
-    // Ensure v2 structure
-    if (inventory.version !== 2) {
-        console.warn(`[RPG Companion] Inventory from ${source} missing version, setting to 2`);
-        inventory.version = 2;
+    // Ensure v3 structure
+    if (inventory.version !== 3) {
+        console.warn(`[RPG Companion] Inventory from ${source} missing version or old version, setting to 3`);
+        inventory.version = 3;
         needsSave = true;
     }
 
-    // Validate onPerson field
-    if (typeof inventory.onPerson !== 'string') {
-        console.warn(`[RPG Companion] Invalid onPerson from ${source}, resetting to "None"`);
-        inventory.onPerson = "None";
+    // Validate onPerson field (v3: should be object)
+    if (!inventory.onPerson || typeof inventory.onPerson !== 'object' || Array.isArray(inventory.onPerson)) {
+        console.warn(`[RPG Companion] Invalid onPerson from ${source}, resetting to empty object`);
+        inventory.onPerson = {};
         needsSave = true;
     } else {
-        // Clean items in onPerson (removes corrupted/dangerous items)
-        const cleanedOnPerson = cleanItemString(inventory.onPerson);
-        if (cleanedOnPerson !== inventory.onPerson) {
-            console.warn(`[RPG Companion] Cleaned corrupted items from onPerson inventory (${source})`);
+        // Validate onPerson object keys/values (same as stored)
+        const cleanedOnPerson = validateStoredInventory(inventory.onPerson);
+        if (JSON.stringify(cleanedOnPerson) !== JSON.stringify(inventory.onPerson)) {
+            console.warn(`[RPG Companion] Cleaned dangerous/invalid onPerson locations from ${source}`);
             inventory.onPerson = cleanedOnPerson;
             needsSave = true;
         }
