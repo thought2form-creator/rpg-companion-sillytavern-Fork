@@ -253,19 +253,24 @@ function renderCharacterEditorCard(char, index, enabledFields, enabledCharStats)
             <div class="rpg-char-editor-header">
                 <div class="rpg-char-editor-title">
                     <input type="text" class="rpg-char-editor-emoji" value="${char.emoji || '😊'}"
-                           data-field="emoji" placeholder="😊" maxlength="2" />
+                           data-field="emoji" placeholder="😊" maxlength="2"
+                           style="background: #1a1a2e !important; background-color: #1a1a2e !important; color: #ffffff !important; border: 1px solid #444 !important; border-style: solid !important; color-scheme: dark !important;" />
                     <input type="text" class="rpg-char-editor-name" value="${char.name || ''}"
-                           data-field="name" placeholder="Character Name" />
+                           data-field="name" placeholder="Character Name"
+                           style="background: #1a1a2e !important; background-color: #1a1a2e !important; color: #ffffff !important; border: 1px solid #444 !important; border-style: solid !important; color-scheme: dark !important;" />
                 </div>
                 <div class="rpg-char-editor-actions">
-                    <button class="rpg-char-editor-btn rpg-char-save-state" title="Save character state">
-                        <i class="fa-solid fa-floppy-disk"></i>
+                    <button class="rpg-char-editor-btn rpg-char-save-state" title="Save character state"
+                            style="background: #2a2a3e !important; background-color: #2a2a3e !important; color: #ffffff !important; border: 1px solid #444 !important; border-style: solid !important;">
+                        <i class="fa-solid fa-floppy-disk" style="color: #ffffff !important;"></i>
                     </button>
-                    <button class="rpg-char-editor-btn rpg-char-regen" title="Regenerate character">
-                        <i class="fa-solid fa-rotate"></i>
+                    <button class="rpg-char-editor-btn rpg-char-regen" title="Regenerate character"
+                            style="background: #2a2a3e !important; background-color: #2a2a3e !important; color: #ffffff !important; border: 1px solid #444 !important; border-style: solid !important;">
+                        <i class="fa-solid fa-rotate" style="color: #ffffff !important;"></i>
                     </button>
-                    <button class="rpg-char-editor-btn rpg-char-remove" title="Remove character">
-                        <i class="fa-solid fa-trash"></i>
+                    <button class="rpg-char-editor-btn rpg-char-remove" title="Remove character"
+                            style="background: #2a2a3e !important; background-color: #2a2a3e !important; color: #ffffff !important; border: 1px solid #444 !important; border-style: solid !important;">
+                        <i class="fa-solid fa-trash" style="color: #ffffff !important;"></i>
                     </button>
                 </div>
             </div>
@@ -284,7 +289,8 @@ function renderCharacterEditorCard(char, index, enabledFields, enabledCharStats)
             html += `
                 <div class="rpg-char-editor-field">
                     <label>${field.name}:</label>
-                    <select class="rpg-char-editor-input" data-field="${escapeName(field.name)}">
+                    <select class="rpg-char-editor-input" data-field="${escapeName(field.name)}"
+                            style="background: #1a1a2e !important; background-color: #1a1a2e !important; color: #ffffff !important; border: 1px solid #444 !important; border-style: solid !important; color-scheme: dark !important;">
                         ${relationshipOptions.map(opt =>
                             `<option value="${opt}" ${char.relationship === opt ? 'selected' : ''}>${opt}</option>`
                         ).join('')}
@@ -297,9 +303,11 @@ function renderCharacterEditorCard(char, index, enabledFields, enabledCharStats)
                 <div class="rpg-char-editor-field">
                     <label>${field.name}:</label>
                     <input type="text" class="rpg-char-editor-input" data-field="${escapeName(field.name)}"
-                           value="${value}" placeholder="${field.description || field.name}" />
-                    <button class="rpg-char-field-regen" data-field="${escapeName(field.name)}" title="Regenerate this field">
-                        <i class="fa-solid fa-rotate"></i>
+                           value="${value}" placeholder="${field.description || field.name}"
+                           style="background: #1a1a2e !important; background-color: #1a1a2e !important; color: #ffffff !important; border: 1px solid #444 !important; border-style: solid !important; color-scheme: dark !important;" />
+                    <button class="rpg-char-field-regen" data-field="${escapeName(field.name)}" title="Regenerate this field"
+                            style="background: #2a2a3e !important; background-color: #2a2a3e !important; color: #ffffff !important; border: 1px solid #444 !important; border-style: solid !important;">
+                        <i class="fa-solid fa-rotate" style="color: #ffffff !important;"></i>
                     </button>
                 </div>
             `;
@@ -315,7 +323,8 @@ function renderCharacterEditorCard(char, index, enabledFields, enabledCharStats)
                 <div class="rpg-char-editor-stat">
                     <label>${stat.name}:</label>
                     <input type="number" class="rpg-char-editor-stat-input" data-stat="${escapeName(stat.name)}"
-                           value="${value}" min="0" max="100" />
+                           value="${value}" min="0" max="100"
+                           style="background: #1a1a2e !important; background-color: #1a1a2e !important; color: #ffffff !important; border: 1px solid #444 !important; border-style: solid !important; color-scheme: dark !important;" />
                     <span>%</span>
                 </div>
             `;
@@ -329,9 +338,11 @@ function renderCharacterEditorCard(char, index, enabledFields, enabledCharStats)
         <div class="rpg-char-editor-field rpg-char-editor-thoughts">
             <label>${thoughtsLabel}:</label>
             <textarea class="rpg-char-editor-textarea" data-field="thoughts" rows="3"
-                      placeholder="Character's internal thoughts...">${char.thoughts || ''}</textarea>
-            <button class="rpg-char-field-regen" data-field="thoughts" title="Regenerate thoughts">
-                <i class="fa-solid fa-rotate"></i>
+                      placeholder="Character's internal thoughts..."
+                      style="background: #1a1a2e !important; background-color: #1a1a2e !important; color: #ffffff !important; border: 1px solid #444 !important; border-style: solid !important; color-scheme: dark !important;">${char.thoughts || ''}</textarea>
+            <button class="rpg-char-field-regen" data-field="thoughts" title="Regenerate thoughts"
+                    style="background: #2a2a3e !important; background-color: #2a2a3e !important; color: #ffffff !important; border: 1px solid #444 !important; border-style: solid !important;">
+                <i class="fa-solid fa-rotate" style="color: #ffffff !important;"></i>
             </button>
         </div>
     `;
