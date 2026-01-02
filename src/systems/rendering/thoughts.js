@@ -18,6 +18,7 @@ import { saveChatData } from '../../core/persistence.js';
 import { getSafeThumbnailUrl } from '../../utils/avatars.js';
 import { saveSettings } from '../../core/persistence.js';
 import { isGenerating, regenerateAvatar } from '../features/avatarGenerator.js';
+import { regenerateCharacterFromCard } from '../ui/characterEditor.js';
 
 /**
  * Helper to log to both console and debug logs array
@@ -740,6 +741,7 @@ export function renderThoughts() {
                                     <span class="rpg-character-name rpg-editable" contenteditable="true" data-character="${escapedName}" data-field="name" title="Click to edit name">${char.name}</span>
                                     <button class="rpg-character-pin ${pinClass}" data-character="${escapedName}" title="${pinTitle}">📌</button>
                                     <button class="rpg-character-freeze ${freezeClass}" data-character="${escapedName}" title="${freezeTitle}">❄️</button>
+                                    <button class="rpg-character-regen" data-character="${escapedName}" title="Regenerate this character">🔄</button>
                                     <button class="rpg-character-remove" data-character="${escapedName}" title="Remove this character from the panel">×</button>
                                 </div>
                 `;
@@ -952,6 +954,13 @@ export function renderThoughts() {
         e.stopPropagation(); // Prevent event bubbling
         const characterName = $(this).data('character');
         toggleFreezeCharacter(characterName);
+    });
+
+    // Add event handler for character regeneration
+    $thoughtsContainer.find('.rpg-character-regen').on('click', function(e) {
+        e.stopPropagation(); // Prevent event bubbling
+        const characterName = $(this).data('character');
+        regenerateCharacterFromCard(characterName);
     });
 
     // Add event handler for character removal

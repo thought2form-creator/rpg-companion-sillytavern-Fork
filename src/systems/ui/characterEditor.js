@@ -872,6 +872,133 @@ function showGuidanceModal(title, description, placeholder, callback) {
     });
 }
 
+/**
+ * Regenerates a character from the character card (not from editor)
+ * @param {string} characterName - Name of the character to regenerate
+ */
+export async function regenerateCharacterFromCard(characterName) {
+    if (!characterName) {
+        toastr.warning('Character name is required', 'RPG Companion');
+        return;
+    }
+
+    // Show guidance modal
+    showGuidanceModal(
+        'Regenerate Character',
+        `Regenerate all fields for "${characterName}"`,
+        'Any specific direction for the regeneration? (Optional)',
+        async (guidance) => {
+            try {
+                toastr.info(`Regenerating ${characterName}...`, 'RPG Companion');
+
+                // Get current character data from lastGeneratedData
+                const characters = parseCharactersFromData(lastGeneratedData.characterThoughts || '');
+                const currentChar = characters.find(c => c.name.toLowerCase() === characterName.toLowerCase());
+
+                if (!currentChar) {
+                    toastr.error(`Character ${characterName} not found`, 'RPG Companion');
+                    return;
+                }
+
+                // Get configuration
+                const config = extensionSettings.trackerConfig?.presentCharacters;
+                const enabledFields = config?.customFields?.filter(f => f && f.enabled && f.name) || [];
+                const characterStatsConfig = config?.characterStats;
+                const enabledCharStats = characterStatsConfig?.enabled && characterStatsConfig?.customStats?.filter(s => s && s.enabled && s.name) || [];
+
+                // Build prompt
+                const prompt = await buildCharacterRegenerationPrompt(characterName, currentChar, guidance, enabledFields, enabledCharStats);
+
+                // Call LLM
+                const response = await callLLMForGeneration(prompt);
+
+                if (!response) {
+                    toastr.error('Failed to regenerate character', 'RPG Companion');
+                    return;
+                }
+
+                // Parse response
+                const updatedData = parseCharacterRegenerationResponse(response, enabledFields, enabledCharStats);
+
+                // Update character in data
+                const lines = lastGeneratedData.characterThoughts.split('\n');
+                const newLines = [];
+                let inTargetCharacter = false;
+                let characterUpdated = false;
+
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+
+                    // Check if this is the start of our target character
+                    if (line.startsWith('- ')) {
+                        const name = line.substring(2).trim();
+                        if (name.toLowerCase() === characterName.toLowerCase()) {
+                            inTargetCharacter = true;
+                            characterUpdated = true;
+                            // Add character name with updated emoji
+                            newLines.push(`- ${updatedData.emoji || currentChar.emoji || '😊'} ${characterName}`);
+
+                            // Add all updated fields
+                            enabledFields.forEach(field => {
+                                if (field.type !== 'relationship' && updatedData[field.name]) {
+                                    newLines.push(`  ${field.name}: ${updatedData[field.name]}`);
+                                }
+                            });
+
+                            // Add relationship if exists
+                            if (updatedData.relationship) {
+                                newLines.push(`  Relationship: ${updatedData.relationship}`);
+                            }
+
+                            // Add stats if enabled
+                            if (enabledCharStats.length > 0 && updatedData.stats) {
+                                const statsLine = enabledCharStats.map(stat =>
+                                    `${stat.name}: ${updatedData.stats[stat.name] || 50}%`
+                                ).join(', ');
+                                newLines.push(`  Stats: ${statsLine}`);
+                            }
+
+                            // Add thoughts
+                            if (updatedData.thoughts) {
+                                newLines.push(`  Thoughts: ${updatedData.thoughts}`);
+                            }
+
+                            continue; // Skip the original line
+                        } else {
+                            inTargetCharacter = false;
+                        }
+                    }
+
+                    // Skip lines that belong to the target character
+                    if (!inTargetCharacter) {
+                        newLines.push(lines[i]);
+                    }
+                }
+
+                if (characterUpdated) {
+                    // Update data
+                    lastGeneratedData.characterThoughts = newLines.join('\n');
+                    committedTrackerData.characterThoughts = newLines.join('\n');
+
+                    // Save to chat metadata
+                    saveChatData();
+
+                    // Re-render
+                    renderThoughts();
+
+                    toastr.success(`${characterName} regenerated successfully`, 'RPG Companion');
+                } else {
+                    toastr.error(`Failed to update ${characterName}`, 'RPG Companion');
+                }
+
+            } catch (error) {
+                console.error('[RPG Companion] Error regenerating character:', error);
+                toastr.error(`Failed to regenerate ${characterName}: ${error.message}`, 'RPG Companion');
+            }
+        }
+    );
+}
+
 export {
     savedCharacterStates,
     parseCharactersFromData
