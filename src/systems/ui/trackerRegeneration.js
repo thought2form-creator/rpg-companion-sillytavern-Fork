@@ -312,7 +312,114 @@ export function parseTrackerRegenerationResponse(response) {
 }
 
 /**
+ * Shows a clean modal to regenerate a tracker section with optional guidance
+ * Uses the same UI style as the character editor guidance modal
+ * @param {string} sectionType - Type of section: 'userStats', 'infoBox', or 'presentCharacters'
+ */
+export async function showTrackerRegenerationModal(sectionType) {
+    const sectionNames = {
+        userStats: "User's Stats",
+        infoBox: 'Environment',
+        presentCharacters: 'Present Characters'
+    };
+
+    const sectionName = sectionNames[sectionType] || sectionType;
+
+    const placeholders = {
+        userStats: 'e.g., Increase health to 80%, add a new skill, etc.',
+        infoBox: 'e.g., Make it nighttime, add rain, change location to forest, etc.',
+        presentCharacters: 'e.g., Add more tension, make characters more friendly, etc.'
+    };
+
+    const placeholder = placeholders[sectionType] || 'Any specific direction for the regeneration?';
+
+    const modalHtml = `
+        <div id="rpg-guidance-modal" class="rpg-settings-popup is-open" role="dialog" aria-modal="true">
+            <div class="rpg-settings-popup-content" style="max-width: 600px;">
+                <header class="rpg-settings-popup-header">
+                    <h3>
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>Regenerate ${sectionName}</span>
+                    </h3>
+                    <button id="rpg-guidance-close" class="rpg-popup-close" type="button">&times;</button>
+                </header>
+
+                <div class="rpg-settings-popup-body">
+                    <p style="margin-bottom: 12px; color: var(--SmartThemeBodyColor);">
+                        Regenerate the ${sectionName} section based on current context
+                    </p>
+
+                    <div style="margin-bottom: 16px;">
+                        <label for="rpg-guidance-input" style="display: block; margin-bottom: 8px; font-weight: 600;">
+                            Guidance (Optional):
+                        </label>
+                        <textarea id="rpg-guidance-input" class="text_pole" placeholder="${placeholder}"
+                                  style="width: 100%; min-height: 100px; padding: 8px; border: 1px solid var(--SmartThemeBorderColor);
+                                         border-radius: 4px; background: var(--SmartThemeBlurTintColor); color: var(--SmartThemeBodyColor);
+                                         resize: vertical; font-family: inherit;"></textarea>
+                        <p style="font-size: 12px; color: #888; margin-top: 4px;">
+                            Leave empty to regenerate without specific guidance. The AI will use the current scene context.
+                        </p>
+                    </div>
+                </div>
+
+                <footer class="rpg-settings-popup-footer">
+                    <button id="rpg-guidance-cancel" class="rpg-btn-secondary" type="button">Cancel</button>
+                    <button id="rpg-guidance-confirm" class="rpg-btn-primary" type="button">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Regenerate
+                    </button>
+                </footer>
+            </div>
+        </div>
+    `;
+
+    // Remove existing modal if present
+    $('#rpg-guidance-modal').remove();
+
+    // Add modal to body
+    $('body').append(modalHtml);
+
+    // Focus on input
+    setTimeout(() => $('#rpg-guidance-input').focus(), 100);
+
+    // Event handlers
+    $('#rpg-guidance-close, #rpg-guidance-cancel').on('click', () => {
+        $('#rpg-guidance-modal').removeClass('is-open');
+        setTimeout(() => $('#rpg-guidance-modal').remove(), 200);
+    });
+
+    $('#rpg-guidance-confirm').on('click', async () => {
+        const guidance = $('#rpg-guidance-input').val().trim();
+
+        // Close modal
+        $('#rpg-guidance-modal').removeClass('is-open');
+        setTimeout(() => $('#rpg-guidance-modal').remove(), 200);
+
+        // Show loading toast
+        toastr.info(`Regenerating ${sectionName}...`, 'RPG Companion', { timeOut: 0, extendedTimeOut: 0 });
+
+        try {
+            await regenerateTrackerSectionDirect(sectionType, guidance);
+            toastr.clear();
+            toastr.success(`${sectionName} regenerated successfully!`, 'RPG Companion');
+        } catch (error) {
+            toastr.clear();
+            toastr.error(`Failed to regenerate ${sectionName}: ${error.message}`, 'RPG Companion');
+            console.error('[RPG Companion] Tracker regeneration error:', error);
+        }
+    });
+
+    // Ctrl+Enter to confirm
+    $('#rpg-guidance-input').on('keydown', (e) => {
+        if (e.ctrlKey && e.which === 13) {
+            $('#rpg-guidance-confirm').click();
+        }
+    });
+}
+
+/**
  * Shows a dialog to regenerate a tracker section with optional guidance
+ * @deprecated Use showTrackerRegenerationModal instead
  * @param {string} sectionType - Type of section: 'userStats', 'infoBox', or 'presentCharacters'
  */
 export async function showTrackerRegenerationDialog(sectionType) {

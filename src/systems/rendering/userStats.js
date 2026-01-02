@@ -126,9 +126,6 @@ export function renderUserStats() {
                 <button id="rpg-regenerate-user-stats" class="rpg-btn-icon" title="Regenerate User Stats" style="padding: 4px 8px; font-size: 14px;">
                     <i class="fa-solid fa-rotate"></i>
                 </button>
-                <button id="rpg-regenerate-user-stats-guided" class="rpg-btn-icon" title="Regenerate with Guidance" style="padding: 4px 8px; font-size: 14px;">
-                    <i class="fa-solid fa-pen-to-square"></i>
-                </button>
             </div>
         </div>
     `;
@@ -377,26 +374,11 @@ export function renderUserStats() {
         }
     });
 
-    // Add event listener for quick regenerate button (no guidance)
+    // Add event listener for regenerate button (with optional guidance)
     $('#rpg-regenerate-user-stats').off('click').on('click', async function() {
         try {
-            const { regenerateTrackerSectionDirect } = await import('../ui/trackerRegeneration.js');
-            toastr.info('Regenerating User Stats...', 'RPG Companion', { timeOut: 0, extendedTimeOut: 0 });
-            await regenerateTrackerSectionDirect('userStats', '');
-            toastr.clear();
-            toastr.success('User Stats regenerated successfully!', 'RPG Companion');
-        } catch (error) {
-            toastr.clear();
-            console.error('[RPG Companion] Failed to regenerate:', error);
-            toastr.error('Failed to regenerate: ' + error.message, 'RPG Companion');
-        }
-    });
-
-    // Add event listener for guided regenerate button (with guidance dialog)
-    $('#rpg-regenerate-user-stats-guided').off('click').on('click', async function() {
-        try {
-            const { showTrackerRegenerationDialog } = await import('../ui/trackerRegeneration.js');
-            showTrackerRegenerationDialog('userStats');
+            const { showTrackerRegenerationModal } = await import('../ui/trackerRegeneration.js');
+            showTrackerRegenerationModal('userStats');
         } catch (error) {
             console.error('[RPG Companion] Failed to load tracker regeneration module:', error);
             toastr.error('Failed to open regeneration dialog: ' + error.message, 'RPG Companion');

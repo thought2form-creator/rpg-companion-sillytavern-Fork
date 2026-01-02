@@ -287,11 +287,8 @@ export function renderInfoBox() {
         <div class="rpg-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <h4 style="margin: 0;">Environment</h4>
             <div style="display: flex; gap: 4px;">
-                <button id="rpg-regenerate-info-box" class="rpg-btn-icon" title="Regenerate Info Box" style="padding: 4px 8px; font-size: 14px;">
+                <button id="rpg-regenerate-info-box" class="rpg-btn-icon" title="Regenerate Environment" style="padding: 4px 8px; font-size: 14px;">
                     <i class="fa-solid fa-rotate"></i>
-                </button>
-                <button id="rpg-regenerate-info-box-guided" class="rpg-btn-icon" title="Regenerate with Guidance" style="padding: 4px 8px; font-size: 14px;">
-                    <i class="fa-solid fa-pen-to-square"></i>
                 </button>
             </div>
         </div>
@@ -539,26 +536,11 @@ export function renderInfoBox() {
         }
     });
 
-    // Add event listener for quick regenerate button (no guidance)
+    // Add event listener for regenerate button (with optional guidance)
     $('#rpg-regenerate-info-box').off('click').on('click', async function() {
         try {
-            const { regenerateTrackerSectionDirect } = await import('../ui/trackerRegeneration.js');
-            toastr.info('Regenerating Info Box...', 'RPG Companion', { timeOut: 0, extendedTimeOut: 0 });
-            await regenerateTrackerSectionDirect('infoBox', '');
-            toastr.clear();
-            toastr.success('Info Box regenerated successfully!', 'RPG Companion');
-        } catch (error) {
-            toastr.clear();
-            console.error('[RPG Companion] Failed to regenerate:', error);
-            toastr.error('Failed to regenerate: ' + error.message, 'RPG Companion');
-        }
-    });
-
-    // Add event listener for guided regenerate button (with guidance dialog)
-    $('#rpg-regenerate-info-box-guided').off('click').on('click', async function() {
-        try {
-            const { showTrackerRegenerationDialog } = await import('../ui/trackerRegeneration.js');
-            showTrackerRegenerationDialog('infoBox');
+            const { showTrackerRegenerationModal } = await import('../ui/trackerRegeneration.js');
+            showTrackerRegenerationModal('infoBox');
         } catch (error) {
             console.error('[RPG Companion] Failed to load tracker regeneration module:', error);
             toastr.error('Failed to open regeneration dialog: ' + error.message, 'RPG Companion');

@@ -607,9 +607,6 @@ export function renderThoughts() {
                 <button id="rpg-regenerate-present-characters" class="rpg-btn-icon" title="Regenerate Present Characters" style="padding: 4px 8px; font-size: 14px;">
                     <i class="fa-solid fa-rotate"></i>
                 </button>
-                <button id="rpg-regenerate-present-characters-guided" class="rpg-btn-icon" title="Regenerate with Guidance" style="padding: 4px 8px; font-size: 14px;">
-                    <i class="fa-solid fa-pen-to-square"></i>
-                </button>
                 <button id="rpg-open-character-editor" class="rpg-btn-icon" title="Advanced Character Editor" style="padding: 4px 8px; font-size: 14px;">
                     <i class="fa-solid fa-users-gear"></i>
                 </button>
@@ -797,26 +794,11 @@ export function renderThoughts() {
     debugLog('[RPG Thoughts] ✓ HTML rendered to container');
     debugLog('[RPG Thoughts] =======================================================');
 
-    // Add event handler for quick regenerate button (no guidance)
+    // Add event handler for regenerate button (with optional guidance)
     $('#rpg-regenerate-present-characters').off('click').on('click', async function() {
         try {
-            const { regenerateTrackerSectionDirect } = await import('../ui/trackerRegeneration.js');
-            toastr.info('Regenerating Present Characters...', 'RPG Companion', { timeOut: 0, extendedTimeOut: 0 });
-            await regenerateTrackerSectionDirect('presentCharacters', '');
-            toastr.clear();
-            toastr.success('Present Characters regenerated successfully!', 'RPG Companion');
-        } catch (error) {
-            toastr.clear();
-            console.error('[RPG Companion] Failed to regenerate:', error);
-            toastr.error('Failed to regenerate: ' + error.message, 'RPG Companion');
-        }
-    });
-
-    // Add event handler for guided regenerate button (with guidance dialog)
-    $('#rpg-regenerate-present-characters-guided').off('click').on('click', async function() {
-        try {
-            const { showTrackerRegenerationDialog } = await import('../ui/trackerRegeneration.js');
-            showTrackerRegenerationDialog('presentCharacters');
+            const { showTrackerRegenerationModal } = await import('../ui/trackerRegeneration.js');
+            showTrackerRegenerationModal('presentCharacters');
         } catch (error) {
             console.error('[RPG Companion] Failed to load tracker regeneration module:', error);
             toastr.error('Failed to open regeneration dialog: ' + error.message, 'RPG Companion');
