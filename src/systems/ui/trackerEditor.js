@@ -698,6 +698,15 @@ function setupPresentCharactersListeners() {
         extensionSettings.trackerConfig.presentCharacters.relationshipEmojis[name] = $(this).val();
     });
 
+    // Emoji picker for relationship emoji fields
+    $('.rpg-relationship-emoji').off('click').on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const $input = $(this);
+        console.log('[RPG Companion] Opening emoji picker for:', $input);
+        openEmojiPicker($input);
+    });
+
     // Thoughts configuration
     $('#rpg-thoughts-enabled').off('change').on('change', function() {
         if (!extensionSettings.trackerConfig.presentCharacters.thoughts) {
@@ -819,3 +828,165 @@ function setupPresentCharactersListeners() {
         extensionSettings.trackerConfig.presentCharacters.characterStats.customStats[index].name = $(this).val();
     });
 }
+
+/**
+ * Opens emoji picker popup (styled like thought bubble)
+ * @param {jQuery} $input - The input element to insert emoji into
+ */
+export function openEmojiPicker($input) {
+    console.log('[RPG] openEmojiPicker called');
+    const emojis = [
+        '❤️', '💔', '💕', '💖', '💗', '💙', '💚', '💛', '🧡', '💜',
+        '⭐', '✨', '🌟', '💫', '⚡', '🔥', '💥', '✅', '❌', '⚠️',
+        '🤝', '👍', '👎', '👊', '✊', '🙏', '💪', '🤲', '👏', '🤗',
+        '⚔️', '🗡️', '🛡️', '🏹', '🔫', '💣', '🧨', '⚖️', '🎯', '🎲',
+        '😊', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃',
+        '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛',
+        '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🥸', '🤩', '🥳',
+        '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖',
+        '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯',
+        '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔',
+        '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦',
+        '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴',
+        '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿',
+        '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖'
+    ];
+
+    // Remove any existing picker
+    $('.rpg-emoji-picker-popup').remove();
+
+    // Get current theme
+    const theme = extensionSettings.theme || 'modern';
+
+    // Create thought-bubble-style picker with arrow pointing left
+    const $picker = $(`
+        <div class="rpg-emoji-picker-popup rpg-emoji-picker-right" data-theme="${theme}">
+            <div class="rpg-thought-bubble">
+                <div class="rpg-emoji-grid-container"></div>
+            </div>
+        </div>
+    `);
+
+    // Add emojis with inline styles - 6x6 grid
+    const $grid = $picker.find('.rpg-emoji-grid-container');
+    $grid.css({
+        display: 'grid',
+        gridTemplateColumns: 'repeat(6, 50px)',
+        gridAutoRows: '50px',
+        gap: '6px',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        padding: '8px',
+        height: '330px', // 6 rows * 50px + 5 gaps * 6px = 300px + 30px
+        maxHeight: '330px',
+        width: 'fit-content'
+    });
+
+    emojis.forEach(emoji => {
+        const $btn = $(`<button class="rpg-emoji-choice">${emoji}</button>`).css({
+            background: 'var(--rpg-accent, rgba(50, 50, 70, 0.8))',
+            border: '1px solid var(--rpg-border, #4a7ba7)',
+            borderRadius: '8px',
+            padding: '0',
+            fontSize: '28px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '50px',
+            height: '50px',
+            flexShrink: '0',
+            transition: 'all 0.15s ease',
+            lineHeight: '1',
+            textAlign: 'center'
+        });
+        $grid.append($btn);
+    });
+
+    // Style the thought bubble container
+    $picker.find('.rpg-thought-bubble').css({
+        background: 'var(--rpg-bg, rgba(30, 30, 50, 0.95))',
+        border: '2px solid var(--rpg-border, #4a7ba7)',
+        borderRadius: '14px',
+        padding: '14px',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+        position: 'relative',
+        backdropFilter: 'blur(15px)',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        width: 'fit-content'
+    });
+
+    // Get input position
+    const inputRect = $input[0].getBoundingClientRect();
+    const pickerWidth = 366; // 6 emojis * 50px + gaps + padding
+    const pickerHeight = 380; // Approximate height
+    const margin = 15;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // Calculate initial position to the right of the input field
+    let top = inputRect.top + (inputRect.height / 2);
+    let left = inputRect.right + margin;
+
+    // Check if picker would go off the right edge
+    if (left + pickerWidth > viewportWidth) {
+        // Place it to the left instead
+        left = inputRect.left - pickerWidth - margin;
+    }
+
+    // Check if picker would go off the left edge
+    if (left < 10) {
+        // Center it horizontally on screen
+        left = (viewportWidth - pickerWidth) / 2;
+    }
+
+    // Check if picker would go off the bottom (accounting for transform)
+    if (top + (pickerHeight / 2) > viewportHeight) {
+        top = viewportHeight - (pickerHeight / 2) - 10;
+    }
+
+    // Check if picker would go off the top (accounting for transform)
+    if (top - (pickerHeight / 2) < 10) {
+        top = (pickerHeight / 2) + 10;
+    }
+
+    // Force inline styles to ensure visibility and positioning
+    $picker.css({
+        position: 'fixed',
+        top: `${top}px`,
+        left: `${left}px`,
+        transform: 'translateY(-50%)',
+        zIndex: 999999
+    });
+
+    // Add to body
+    $('body').append($picker);
+    console.log('[RPG] Picker appended to body, element:', $picker[0]);
+
+    // Click handlers for emoji buttons
+    $picker.find('.rpg-emoji-choice').on('click', function() {
+        const emoji = $(this).text();
+        $input.val(emoji).trigger('blur');
+        $picker.fadeOut(200, function() { $(this).remove(); });
+    });
+
+    // Click outside to close
+    setTimeout(() => {
+        $(document).one('click.emojiPicker', function(e) {
+            if (!$(e.target).closest('.rpg-emoji-picker-popup').length) {
+                $picker.fadeOut(200, function() { $(this).remove(); });
+            }
+        });
+    }, 100);
+
+    // Escape to close
+    $(document).one('keydown.emojiPicker', function(e) {
+        if (e.key === 'Escape') {
+            $picker.fadeOut(200, function() { $(this).remove(); });
+        }
+    });
+}
+
+

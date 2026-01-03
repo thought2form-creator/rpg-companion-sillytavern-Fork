@@ -1963,6 +1963,14 @@ body:has(.rpg-panel.rpg-position-left) #sheld {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
+/* Custom image inside relationship badge */
+.rpg-relationship-badge-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
 /* Character info section */
 .rpg-character-content {
     flex: 1;
@@ -6244,6 +6252,42 @@ body:has(.rpg-panel.rpg-position-left) #sheld {
     white-space: nowrap;
 }
 
+.rpg-item-row .rpg-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.rpg-item-row .rpg-item-freeze {
+    padding: 0.3rem 0.6rem;
+    background: transparent;
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 0.25rem;
+    color: var(--SmartThemeFastUISliderColColor);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.85rem;
+    opacity: 0.4;
+}
+
+.rpg-item-row .rpg-item-freeze:hover {
+    opacity: 1;
+    background: rgba(135, 206, 250, 0.2);
+    border-color: rgba(135, 206, 250, 0.5);
+}
+
+.rpg-item-row .rpg-item-freeze.rpg-item-frozen {
+    opacity: 1;
+    color: #87ceeb;
+    border-color: rgba(135, 206, 250, 0.7);
+    text-shadow: 0 0 6px rgba(135, 206, 250, 0.6);
+}
+
+.rpg-item-row .rpg-item-freeze.rpg-item-frozen:hover {
+    background: rgba(135, 206, 250, 0.3);
+}
+
 .rpg-item-row .rpg-item-remove {
     flex-shrink: 0;
     padding: 0.3rem 0.6rem;
@@ -6260,6 +6304,13 @@ body:has(.rpg-panel.rpg-position-left) #sheld {
     background: #dc3545;
     border-color: #dc3545;
     color: white;
+}
+
+/* Frozen item row - cool blue background */
+.rpg-item-row.rpg-item-frozen {
+    background: linear-gradient(135deg, rgba(100, 149, 237, 0.15) 0%, rgba(135, 206, 250, 0.1) 100%);
+    border-color: rgba(100, 149, 237, 0.7);
+    box-shadow: 0 0 12px rgba(100, 149, 237, 0.4);
 }
 
 /* GRID VIEW - Responsive card grid */
@@ -6320,6 +6371,52 @@ body:has(.rpg-panel.rpg-position-left) #sheld {
 .rpg-item-card .rpg-item-remove:hover {
     background: #dc3545;
     color: white;
+}
+
+/* Item freeze button - grid view */
+.rpg-item-card .rpg-item-freeze {
+    position: absolute;
+    top: 0.25rem;
+    left: 0.25rem;
+    padding: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: transparent;
+    border: none;
+    border-radius: 0.25rem;
+    color: var(--SmartThemeFastUISliderColColor);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.4;
+}
+
+.rpg-item-card .rpg-item-freeze:hover {
+    opacity: 1;
+    background: rgba(135, 206, 250, 0.2);
+    transform: scale(1.1);
+}
+
+.rpg-item-card .rpg-item-freeze.rpg-item-frozen {
+    opacity: 1;
+    color: #87ceeb;
+    text-shadow: 0 0 6px rgba(135, 206, 250, 0.6);
+    filter: drop-shadow(0 0 2px rgba(135, 206, 250, 0.8));
+}
+
+.rpg-item-card .rpg-item-freeze.rpg-item-frozen:hover {
+    background: rgba(135, 206, 250, 0.3);
+    transform: scale(1.15);
+}
+
+/* Frozen item card - cool blue background */
+.rpg-item-card.rpg-item-frozen {
+    background: linear-gradient(135deg, rgba(100, 149, 237, 0.15) 0%, rgba(135, 206, 250, 0.1) 100%);
+    border-color: rgba(100, 149, 237, 0.7);
+    box-shadow: 0 0 12px rgba(100, 149, 237, 0.4);
 }
 
 /* Empty state message */
@@ -8883,7 +8980,55 @@ body[data-theme="cyberpunk"] .rpg-music-widget-play {
     flex: 1;
 }
 
-/* Character editor emoji input - force dark theme */
+/* ============================================
+   CHARACTER EDITOR MODAL - THEME SUPPORT
+   ============================================ */
+
+/* Default Theme - Uses SillyTavern theme variables */
+#rpg-character-editor-modal,
+#rpg-add-character-modal,
+#rpg-guidance-modal {
+    --rpg-bg: var(--SmartThemeBlurTintColor, rgba(26, 26, 46, 0.9));
+    --rpg-accent: var(--black30a, rgba(22, 33, 62, 0.9));
+    --rpg-text: var(--SmartThemeBodyColor, #eaeaea);
+    --rpg-highlight: var(--SmartThemeQuoteColor, #e94560);
+    --rpg-border: var(--SmartThemeBorderColor, #4a7ba7);
+}
+
+/* Sci-Fi Theme */
+#rpg-character-editor-modal[data-theme="sci-fi"],
+#rpg-add-character-modal[data-theme="sci-fi"],
+#rpg-guidance-modal[data-theme="sci-fi"] {
+    --rpg-bg: #0a0e27;
+    --rpg-accent: #1a1f3a;
+    --rpg-text: #00ffff;
+    --rpg-highlight: #ff00ff;
+    --rpg-border: #00ffff;
+}
+
+/* Fantasy Theme */
+#rpg-character-editor-modal[data-theme="fantasy"],
+#rpg-add-character-modal[data-theme="fantasy"],
+#rpg-guidance-modal[data-theme="fantasy"] {
+    --rpg-bg: #2b1810;
+    --rpg-accent: #3d2516;
+    --rpg-text: #f4e4c1;
+    --rpg-highlight: #d4af37;
+    --rpg-border: #8b6914;
+}
+
+/* Cyberpunk Theme */
+#rpg-character-editor-modal[data-theme="cyberpunk"],
+#rpg-add-character-modal[data-theme="cyberpunk"],
+#rpg-guidance-modal[data-theme="cyberpunk"] {
+    --rpg-bg: #0d0221;
+    --rpg-accent: #1a0b2e;
+    --rpg-text: #00ff9f;
+    --rpg-highlight: #ff00ff;
+    --rpg-border: #ff00ff;
+}
+
+/* Character editor emoji input - use theme variables */
 #rpg-character-editor-modal .rpg-char-editor-emoji,
 #rpg-character-editor-modal input.rpg-char-editor-emoji,
 .rpg-char-editor-card .rpg-char-editor-emoji,
@@ -8892,14 +9037,13 @@ body[data-theme="cyberpunk"] .rpg-music-widget-play {
     width: 40px !important;
     text-align: center !important;
     font-size: 20px !important;
-    background: #1a1a2e !important;
-    background-color: #1a1a2e !important;
-    border: 1px solid #444 !important;
+    background: var(--rpg-bg) !important;
+    background-color: var(--rpg-bg) !important;
+    border: 1px solid var(--rpg-border) !important;
     border-style: solid !important;
     border-radius: 4px !important;
     padding: 4px !important;
-    color: #ffffff !important;
-    color-scheme: dark !important;
+    color: var(--rpg-text) !important;
     -webkit-appearance: none !important;
     -moz-appearance: none !important;
     appearance: none !important;
@@ -8932,35 +9076,32 @@ body[data-theme="cyberpunk"] .rpg-music-widget-play {
     gap: 8px;
 }
 
-/* Character editor buttons - force dark theme */
+/* Character editor buttons - use theme variables */
 #rpg-character-editor-modal .rpg-char-editor-btn,
 #rpg-character-editor-modal button.rpg-char-editor-btn,
 .rpg-char-editor-btn {
-    background: #2a2a3e !important;
-    background-color: #2a2a3e !important;
-    border: 1px solid #444 !important;
-    border-radius: 4px !important;
-    padding: 6px 10px !important;
-    color: #ffffff !important;
-    cursor: pointer !important;
-    transition: all 0.2s ease !important;
+    background: var(--rpg-accent);
+    border: 1px solid var(--rpg-border);
+    border-radius: 4px;
+    padding: 6px 10px;
+    color: var(--rpg-text);
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 #rpg-character-editor-modal .rpg-char-editor-btn:hover,
 #rpg-character-editor-modal button.rpg-char-editor-btn:hover,
 .rpg-char-editor-btn:hover {
-    background: var(--rpg-highlight) !important;
-    background-color: var(--rpg-highlight) !important;
-    color: #ffffff !important;
-    border-color: var(--rpg-highlight) !important;
+    background: var(--rpg-highlight);
+    color: var(--rpg-bg);
+    border-color: var(--rpg-highlight);
 }
 
 #rpg-character-editor-modal .rpg-char-editor-btn i,
 #rpg-character-editor-modal button.rpg-char-editor-btn i,
 .rpg-char-editor-btn i {
-    color: #ffffff !important;
-    filter: brightness(1) !important;
-    opacity: 1 !important;
+    filter: brightness(1);
+    opacity: 1;
 }
 
 .rpg-char-editor-fields {
@@ -8981,7 +9122,7 @@ body[data-theme="cyberpunk"] .rpg-music-widget-play {
     color: var(--rpg-text);
 }
 
-/* Character editor input fields - force dark theme */
+/* Character editor input fields - use theme variables */
 #rpg-character-editor-modal .rpg-char-editor-input,
 #rpg-character-editor-modal input.rpg-char-editor-input,
 #rpg-character-editor-modal select.rpg-char-editor-input,
@@ -8994,19 +9135,13 @@ body[data-theme="cyberpunk"] .rpg-music-widget-play {
 .rpg-char-editor-card textarea.rpg-char-editor-textarea,
 .rpg-char-editor-field input.rpg-char-editor-input,
 .rpg-char-editor-field select.rpg-char-editor-input {
-    flex: 1 !important;
-    background: #1a1a2e !important;
-    background-color: #1a1a2e !important;
-    border: 1px solid #444 !important;
-    border-style: solid !important;
-    border-radius: 4px !important;
-    padding: 6px 10px !important;
-    color: #ffffff !important;
-    font-family: inherit !important;
-    color-scheme: dark !important;
-    -webkit-appearance: none !important;
-    -moz-appearance: none !important;
-    appearance: none !important;
+    flex: 1;
+    background: var(--rpg-bg);
+    border: 1px solid var(--rpg-border);
+    border-radius: 4px;
+    padding: 6px 10px;
+    color: var(--rpg-text);
+    font-family: inherit;
 }
 
 /* Placeholder text color */
@@ -9015,13 +9150,79 @@ body[data-theme="cyberpunk"] .rpg-music-widget-play {
 #rpg-character-editor-modal textarea.rpg-char-editor-textarea::placeholder,
 .rpg-char-editor-input::placeholder,
 .rpg-char-editor-textarea::placeholder {
-    color: #888 !important;
-    opacity: 0.6 !important;
+    color: var(--rpg-text);
+    opacity: 0.5;
 }
 
 .rpg-char-editor-textarea {
     resize: vertical;
     min-height: 60px;
+}
+
+/* ============================================
+   CHARACTER CREATOR UI
+   ============================================ */
+
+/* Character Creator Button */
+.rpg-character-creator-btn {
+    background: var(--rpg-accent);
+    color: var(--rpg-text);
+    border: 2px solid var(--rpg-highlight);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    margin: 0 2px;
+    transition: all 0.2s ease;
+}
+
+.rpg-character-creator-btn:hover {
+    background: var(--rpg-highlight);
+    color: var(--rpg-bg);
+    border-color: var(--rpg-highlight);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px var(--rpg-shadow);
+}
+
+.rpg-character-creator-btn:active {
+    transform: translateY(0);
+}
+
+/* Dev Modal Info Boxes */
+.rpg-dev-info-box {
+    background: var(--rpg-bg);
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--rpg-text);
+    border: 1px solid var(--rpg-border);
+}
+
+.rpg-dev-debug-box {
+    background: #000;
+    color: #0f0;
+    padding: 10px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    border: 1px solid var(--rpg-border);
+}
+
+.rpg-dev-output-box {
+    background: var(--rpg-bg);
+    color: var(--rpg-text);
+    padding: 10px;
+    border-radius: 4px;
+    min-height: 100px;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    border: 1px solid var(--rpg-border);
 }
 
 /* Character field regenerate buttons - force dark theme */
@@ -9189,4 +9390,122 @@ body[data-theme="cyberpunk"] .rpg-music-widget-play {
 #rpg-add-character-modal input.text_pole::placeholder {
     color: #888 !important;
     opacity: 0.6 !important;
+}
+
+/* Emoji Picker Popup (Thought Bubble Style) */
+.rpg-emoji-picker-popup {
+    position: fixed;
+    z-index: 999999;
+    pointer-events: auto;
+    animation: thoughtPanelFadeIn 0.4s ease-out;
+}
+
+.rpg-emoji-picker-popup .rpg-thought-bubble {
+    background: var(--rpg-bg, rgba(30, 30, 50, 0.95));
+    border: 2px solid var(--rpg-highlight, #e94560);
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    position: relative;
+    backdrop-filter: blur(15px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    /* Width to fit exactly 8 columns: 8*40px + 7*4px gaps + 8px padding + 6px scrollbar = 366px */
+    width: 366px;
+}
+
+/* Arrow pointing left (when picker is on right side of input) */
+.rpg-emoji-picker-right .rpg-thought-bubble::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: -12px;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 10px 12px 10px 0;
+    border-color: transparent var(--rpg-border, #4a7ba7) transparent transparent;
+}
+
+.rpg-emoji-picker-right .rpg-thought-bubble::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: -9px;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 8px 10px 8px 0;
+    border-color: transparent var(--rpg-bg, rgba(30, 30, 50, 0.95)) transparent transparent;
+    z-index: 1;
+}
+
+.rpg-emoji-grid-container {
+    display: grid;
+    grid-template-columns: repeat(8, 40px);
+    grid-auto-rows: 40px;
+    gap: 4px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px;
+    /* 8 rows * 40px + 7 gaps * 4px = 320px + 28px = 348px */
+    height: 348px;
+    max-height: 348px;
+    width: fit-content;
+}
+
+.rpg-emoji-choice {
+    background: var(--rpg-accent, rgba(50, 50, 70, 0.8));
+    border: 1px solid var(--rpg-highlight, #e94560);
+    border-radius: 6px;
+    padding: 0;
+    font-size: 24px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+}
+
+.rpg-emoji-choice:hover {
+    background: var(--rpg-highlight, #e94560);
+    transform: scale(1.15);
+    box-shadow: 0 4px 12px rgba(233, 69, 96, 0.4);
+}
+
+.rpg-emoji-choice:active {
+    transform: scale(0.95);
+}
+
+/* Scrollbar for emoji grid - matches thought bubble style */
+.rpg-emoji-grid-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.rpg-emoji-grid-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+.rpg-emoji-grid-container::-webkit-scrollbar-thumb {
+    background: var(--rpg-highlight, #e94560);
+    border-radius: 3px;
+    opacity: 0.5;
+}
+
+.rpg-emoji-grid-container::-webkit-scrollbar-thumb:hover {
+    background: var(--rpg-highlight, #e94560);
+    opacity: 0.8;
+}
+
+/* Make emoji input field cursor pointer to indicate it's clickable */
+.rpg-relationship-emoji {
+    cursor: pointer;
+    user-select: none;
 }

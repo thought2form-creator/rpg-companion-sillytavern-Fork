@@ -1,0 +1,51 @@
+┌─────────────────────────────────────────────┐
+│ Character Creator                      [X]  │
+├─────────────────────────────────────────────┤
+│ Name: [____________]                        │
+│ Template: [Female Character ▼]             │
+│ Connection: [Main API ▼]                   │
+│ World Info: [☑ Book1] [☑ Book2] [☐ Book3] │
+│ Context Depth: [━━━●━━━] 5                 │
+│ Vector Results: [━━●━━━━] 3                │
+│                                             │
+│ ▼ Global Control Prompt                    │
+│ ┌─────────────────────────────────────────┐ │
+│ │ CHARACTER DEVELOPMENT PROTOCOL...       │ │
+│ └─────────────────────────────────────────┘ │
+│                                             │
+│ ▼ System Prompt Override                   │
+│ ☐ Override ST default                      │
+│ ┌─────────────────────────────────────────┐ │
+│ │ [Custom system prompt...]               │ │
+│ └─────────────────────────────────────────┘ │
+│                                             │
+│ ▼ Character Data Context (if from card)    │
+│ ┌─────────────────────────────────────────┐ │
+│ │ Wrapper: "Review this character..."     │ │
+│ └─────────────────────────────────────────┘ │
+│                                             │
+│ ─────────── Fields ───────────              │
+│                                             │
+│ **Name:**                                   │
+│ ☑ Include in context                       │
+│ ┌─────────────────────────────────────────┐ │
+│ │ [Generated/edited text...]              │ │
+│ └─────────────────────────────────────────┘ │
+│ ▼ Field Guidance                           │
+│ ┌─────────────────────────────────────────┐ │
+│ │ Generate the character's full name...   │ │
+│ └─────────────────────────────────────────┘ │
+│ [Generate] [Continue] [Clear]              │
+│                                             │
+│ **Age:**                                    │
+│ ☑ Include in context                       │
+│ [Dropdown: 25 ▼] (if configured)           │
+│ ▼ Field Guidance                           │
+│ ...                                         │
+│                                             │
+│ [... more fields ...]                      │
+│                                             │
+├─────────────────────────────────────────────┤
+│ [Generate All] [Copy Output] [Clear All]   │
+│                           [Close]           │
+└─────────────────────────────────────────────┘

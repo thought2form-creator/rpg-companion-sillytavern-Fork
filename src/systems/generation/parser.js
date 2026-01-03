@@ -5,7 +5,7 @@
 
 import { extensionSettings, FEATURE_FLAGS, addDebugLog } from '../../core/state.js';
 import { saveSettings } from '../../core/persistence.js';
-import { extractInventory } from './inventoryParser.js';
+import { extractInventory, mergeFrozenItems } from './inventoryParser.js';
 
 /**
  * Helper to separate emoji from text in a string
@@ -394,8 +394,11 @@ export function parseUserStats(statsText) {
         if (FEATURE_FLAGS.useNewInventory) {
             const inventoryData = extractInventory(statsText);
             if (inventoryData) {
-                extensionSettings.userStats.inventory = inventoryData;
-                debugLog('[RPG Parser] Inventory v2 extracted:', inventoryData);
+                // Merge frozen items back into the regenerated inventory
+                const frozenItems = extensionSettings.frozenItems || {};
+                const mergedInventory = mergeFrozenItems(inventoryData, frozenItems);
+                extensionSettings.userStats.inventory = mergedInventory;
+                debugLog('[RPG Parser] Inventory v2 extracted and merged with frozen items:', mergedInventory);
             } else {
                 debugLog('[RPG Parser] Inventory v2 extraction failed');
             }

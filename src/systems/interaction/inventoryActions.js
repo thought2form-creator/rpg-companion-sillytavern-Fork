@@ -372,7 +372,51 @@ export function confirmRemoveLocation(locationName, field = 'stored') {
 
     // Re-render inventory UI
     renderInventory();
-}/**
+}
+
+/**
+ * Toggles the freeze status of an inventory item
+ * Frozen items have their state locked and won't be updated during regeneration
+ * @param {string} field - Field name ('onPerson', 'stored', 'assets')
+ * @param {string} itemName - Name of the item to freeze/unfreeze
+ * @param {string} location - Location name (for onPerson/stored)
+ */
+export function toggleFreezeItem(field, itemName, location = null) {
+    console.log(`[RPG Companion] Toggling freeze for item: ${itemName} in ${field}${location ? ` - ${location}` : ''}`);
+
+    // Initialize frozenItems object if it doesn't exist
+    if (!extensionSettings.frozenItems) {
+        extensionSettings.frozenItems = {};
+    }
+
+    // Create unique key for the item
+    const key = location ? `${field}:${location}:${itemName.toLowerCase()}` : `${field}:${itemName.toLowerCase()}`;
+
+    if (extensionSettings.frozenItems[key]) {
+        // Item is frozen, unfreeze it
+        delete extensionSettings.frozenItems[key];
+        console.log(`[RPG Companion] Unfroze item: ${itemName}`);
+        toastr.info(`${itemName} unfrozen - will update during regeneration`, 'RPG Companion');
+    } else {
+        // Item is not frozen, freeze it
+        extensionSettings.frozenItems[key] = {
+            field: field,
+            location: location,
+            itemName: itemName,
+            frozenAt: Date.now()
+        };
+        console.log(`[RPG Companion] Froze item: ${itemName}`);
+        toastr.success(`${itemName} frozen - locked and protected from updates`, 'RPG Companion');
+    }
+
+    // Save settings
+    saveSettings();
+
+    // Re-render to update freeze button appearance
+    renderInventory();
+}
+
+/**
  * Toggles the collapsed state of a storage location section.
  * @param {string} locationName - Name of location to toggle
  */
@@ -485,6 +529,16 @@ export function initInventoryEventListeners() {
         const itemIndex = parseInt($(this).data('index'));
         const location = $(this).data('location');
         removeItem(field, itemIndex, location);
+    });
+
+    // Freeze item button
+    $(document).on('click', '.rpg-item-freeze[data-action="freeze-item"]', function(e) {
+        e.preventDefault();
+        e.stopPropagation(); // Prevent event bubbling
+        const field = $(this).data('field');
+        const itemName = $(this).data('item');
+        const location = $(this).data('location');
+        toggleFreezeItem(field, itemName, location);
     });
 
     // Add location button - shows inline form

@@ -138,6 +138,7 @@ import { initLorebookLimiter } from './src/systems/features/lorebookLimiter.js';
 import { parseAndStoreSpotifyUrl } from './src/systems/features/musicPlayer.js';
 import { DEFAULT_HTML_PROMPT } from './src/systems/generation/promptBuilder.js';
 import { openEncounterModal } from './src/systems/ui/encounterUI.js';
+import { setupCharacterCreatorButton } from './src/systems/ui/characterCreatorUI.js';
 
 // Integration modules
 import {
@@ -852,6 +853,7 @@ async function initUI() {
     initPromptsEditor();
     addDiceQuickReply();
     setupPlotButtons(sendPlotProgression, openEncounterModal);
+    setupCharacterCreatorButton(); // Add character creator button
     setupMobileKeyboardHandling();
     setupContentEditableScrolling();
     initInventoryEventListeners();

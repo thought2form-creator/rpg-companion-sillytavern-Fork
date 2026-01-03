@@ -115,5 +115,15 @@ export const defaultSettings = {
     lastDiceRoll: null, // Store last dice roll result
     collapsedInventoryLocations: [], // Array of collapsed storage location names
     debugMode: false, // Enable debug logging visible in UI (for mobile debugging)
-    memoryMessagesToProcess: 16 // Number of messages to process per batch in memory recollection
+    memoryMessagesToProcess: 16, // Number of messages to process per batch in memory recollection
+    // Character Creator settings
+    characterCreator: {
+        profileId: '', // Connection Profile ID for character generation
+        maxTokens: 2048, // Max tokens for character generation (can override profile setting)
+        chatContextDepth: 4, // How many chat messages to include in context
+        includeWorldInfo: true, // Include world info in generation context
+        includeExistingChars: true, // Include existing characters in generation context
+        includeTrackers: true, // Include tracker data in generation context
+        defaultTemplate: 'default' // Default template to use
+    }
 };

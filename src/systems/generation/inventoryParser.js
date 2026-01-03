@@ -108,6 +108,70 @@ export function extractLegacyInventory(text) {
 }
 
 /**
+ * Merges frozen items from stored data with newly regenerated inventory
+ * Frozen items are preserved and added back to their locations
+ * @param {InventoryV3} newInventory - Newly regenerated inventory
+ * @param {Object} frozenItems - Frozen items from extensionSettings
+ * @returns {InventoryV3} Merged inventory with frozen items preserved
+ */
+export function mergeFrozenItems(newInventory, frozenItems) {
+    if (!frozenItems || Object.keys(frozenItems).length === 0) {
+        return newInventory;
+    }
+
+    const result = JSON.parse(JSON.stringify(newInventory)); // Deep clone
+    let frozenItemsRestored = 0;
+
+    // Process each frozen item
+    for (const [key, frozenData] of Object.entries(frozenItems)) {
+        const { field, location, itemName } = frozenData;
+
+        if (field === 'onPerson' || field === 'stored') {
+            // Ensure location exists
+            if (!result[field][location]) {
+                result[field][location] = 'None';
+            }
+
+            // Parse existing items in location
+            const existingItems = result[field][location] === 'None' ? [] :
+                result[field][location].split(',').map(item => item.trim()).filter(item => item);
+
+            // Check if frozen item already exists (case-insensitive)
+            const itemExists = existingItems.some(item => item.toLowerCase() === itemName.toLowerCase());
+
+            if (!itemExists) {
+                // Add frozen item back
+                existingItems.push(itemName);
+                result[field][location] = existingItems.join(', ');
+                frozenItemsRestored++;
+                console.log(`[RPG Companion] Restored frozen item: ${itemName} to ${field} - ${location}`);
+            }
+        } else if (field === 'assets') {
+            // Parse existing assets
+            const existingAssets = result.assets === 'None' ? [] :
+                result.assets.split(',').map(item => item.trim()).filter(item => item);
+
+            // Check if frozen asset already exists (case-insensitive)
+            const assetExists = existingAssets.some(asset => asset.toLowerCase() === itemName.toLowerCase());
+
+            if (!assetExists) {
+                // Add frozen asset back
+                existingAssets.push(itemName);
+                result.assets = existingAssets.join(', ');
+                frozenItemsRestored++;
+                console.log(`[RPG Companion] Restored frozen asset: ${itemName}`);
+            }
+        }
+    }
+
+    if (frozenItemsRestored > 0) {
+        console.log(`[RPG Companion] Restored ${frozenItemsRestored} frozen items during regeneration`);
+    }
+
+    return result;
+}
+
+/**
  * Main inventory extraction function that tries v3 format first, then falls back to v1.
  * Converts v1 format to v3 automatically if found.
  *

@@ -24,6 +24,22 @@ export function getLocationId(locationName) {
 }
 
 /**
+ * Checks if an item is frozen
+ * @param {string} field - Field name ('onPerson', 'stored', 'assets')
+ * @param {string} itemName - Name of the item
+ * @param {string} location - Location name (for onPerson/stored)
+ * @returns {boolean} True if item is frozen
+ */
+function isItemFrozen(field, itemName, location = null) {
+    if (!extensionSettings.frozenItems) {
+        return false;
+    }
+
+    const key = location ? `${field}:${location}:${itemName.toLowerCase()}` : `${field}:${itemName.toLowerCase()}`;
+    return !!extensionSettings.frozenItems[key];
+}
+
+/**
  * Renders the inventory sub-tab navigation (On Person, Stored, Assets)
  * @param {string} activeTab - Currently active sub-tab ('onPerson', 'stored', 'assets')
  * @returns {string} HTML for sub-tab navigation
@@ -106,24 +122,38 @@ export function renderOnPersonView(onPerson, collapsedLocations = [], viewMode =
             } else {
                 if (viewMode === 'grid') {
                     // Grid view: card-style items
-                    itemsHtml = items.map((item, index) => `
-                        <div class="rpg-item-card" data-field="onPerson" data-location="${escapeHtml(location)}" data-index="${index}">
+                    itemsHtml = items.map((item, index) => {
+                        const isFrozen = isItemFrozen('onPerson', item, location);
+                        const frozenClass = isFrozen ? 'rpg-item-frozen' : '';
+                        const freezeTitle = isFrozen ? 'Unfreeze this item (currently locked)' : 'Freeze this item to prevent updates';
+                        return `
+                        <div class="rpg-item-card ${frozenClass}" data-field="onPerson" data-location="${escapeHtml(location)}" data-index="${index}">
+                            <button class="rpg-item-freeze ${frozenClass}" data-action="freeze-item" data-field="onPerson" data-location="${escapeHtml(location)}" data-index="${index}" data-item="${escapeHtml(item)}" title="${freezeTitle}">❄️</button>
                             <button class="rpg-item-remove" data-action="remove-item" data-field="onPerson" data-location="${escapeHtml(location)}" data-index="${index}" title="Remove item">
                                 <i class="fa-solid fa-times"></i>
                             </button>
                             <span class="rpg-item-name rpg-editable" contenteditable="true" data-field="onPerson" data-location="${escapeHtml(location)}" data-index="${index}" title="Click to edit">${escapeHtml(item)}</span>
                         </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 } else {
                     // List view: full-width rows
-                    itemsHtml = items.map((item, index) => `
-                        <div class="rpg-item-row" data-field="onPerson" data-location="${escapeHtml(location)}" data-index="${index}">
+                    itemsHtml = items.map((item, index) => {
+                        const isFrozen = isItemFrozen('onPerson', item, location);
+                        const frozenClass = isFrozen ? 'rpg-item-frozen' : '';
+                        const freezeTitle = isFrozen ? 'Unfreeze this item (currently locked)' : 'Freeze this item to prevent updates';
+                        return `
+                        <div class="rpg-item-row ${frozenClass}" data-field="onPerson" data-location="${escapeHtml(location)}" data-index="${index}">
                             <span class="rpg-item-name rpg-editable" contenteditable="true" data-field="onPerson" data-location="${escapeHtml(location)}" data-index="${index}" title="Click to edit">${escapeHtml(item)}</span>
-                            <button class="rpg-item-remove" data-action="remove-item" data-field="onPerson" data-location="${escapeHtml(location)}" data-index="${index}" title="Remove item">
-                                <i class="fa-solid fa-times"></i>
-                            </button>
+                            <div class="rpg-item-actions">
+                                <button class="rpg-item-freeze ${frozenClass}" data-action="freeze-item" data-field="onPerson" data-location="${escapeHtml(location)}" data-index="${index}" data-item="${escapeHtml(item)}" title="${freezeTitle}">❄️</button>
+                                <button class="rpg-item-remove" data-action="remove-item" data-field="onPerson" data-location="${escapeHtml(location)}" data-index="${index}" title="Remove item">
+                                    <i class="fa-solid fa-times"></i>
+                                </button>
+                            </div>
                         </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 }
             }
 
@@ -235,24 +265,38 @@ export function renderStoredView(stored, collapsedLocations = [], viewMode = 'li
             } else {
                 if (viewMode === 'grid') {
                     // Grid view: card-style items
-                    itemsHtml = items.map((item, index) => `
-                        <div class="rpg-item-card" data-field="stored" data-location="${escapeHtml(location)}" data-index="${index}">
+                    itemsHtml = items.map((item, index) => {
+                        const isFrozen = isItemFrozen('stored', item, location);
+                        const frozenClass = isFrozen ? 'rpg-item-frozen' : '';
+                        const freezeTitle = isFrozen ? 'Unfreeze this item (currently locked)' : 'Freeze this item to prevent updates';
+                        return `
+                        <div class="rpg-item-card ${frozenClass}" data-field="stored" data-location="${escapeHtml(location)}" data-index="${index}">
+                            <button class="rpg-item-freeze ${frozenClass}" data-action="freeze-item" data-field="stored" data-location="${escapeHtml(location)}" data-index="${index}" data-item="${escapeHtml(item)}" title="${freezeTitle}">❄️</button>
                             <button class="rpg-item-remove" data-action="remove-item" data-field="stored" data-location="${escapeHtml(location)}" data-index="${index}" title="Remove item">
                                 <i class="fa-solid fa-times"></i>
                             </button>
                             <span class="rpg-item-name rpg-editable" contenteditable="true" data-field="stored" data-location="${escapeHtml(location)}" data-index="${index}" title="Click to edit">${escapeHtml(item)}</span>
                         </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 } else {
                     // List view: full-width rows
-                    itemsHtml = items.map((item, index) => `
-                        <div class="rpg-item-row" data-field="stored" data-location="${escapeHtml(location)}" data-index="${index}">
+                    itemsHtml = items.map((item, index) => {
+                        const isFrozen = isItemFrozen('stored', item, location);
+                        const frozenClass = isFrozen ? 'rpg-item-frozen' : '';
+                        const freezeTitle = isFrozen ? 'Unfreeze this item (currently locked)' : 'Freeze this item to prevent updates';
+                        return `
+                        <div class="rpg-item-row ${frozenClass}" data-field="stored" data-location="${escapeHtml(location)}" data-index="${index}">
                             <span class="rpg-item-name rpg-editable" contenteditable="true" data-field="stored" data-location="${escapeHtml(location)}" data-index="${index}" title="Click to edit">${escapeHtml(item)}</span>
-                            <button class="rpg-item-remove" data-action="remove-item" data-field="stored" data-location="${escapeHtml(location)}" data-index="${index}" title="Remove item">
-                                <i class="fa-solid fa-times"></i>
-                            </button>
+                            <div class="rpg-item-actions">
+                                <button class="rpg-item-freeze ${frozenClass}" data-action="freeze-item" data-field="stored" data-location="${escapeHtml(location)}" data-index="${index}" data-item="${escapeHtml(item)}" title="${freezeTitle}">❄️</button>
+                                <button class="rpg-item-remove" data-action="remove-item" data-field="stored" data-location="${escapeHtml(location)}" data-index="${index}" title="Remove item">
+                                    <i class="fa-solid fa-times"></i>
+                                </button>
+                            </div>
                         </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 }
             }
 
@@ -331,24 +375,38 @@ export function renderAssetsView(assets, viewMode = 'list') {
     } else {
         if (viewMode === 'grid') {
             // Grid view: card-style items
-            itemsHtml = items.map((item, index) => `
-                <div class="rpg-item-card" data-field="assets" data-index="${index}">
+            itemsHtml = items.map((item, index) => {
+                const isFrozen = isItemFrozen('assets', item);
+                const frozenClass = isFrozen ? 'rpg-item-frozen' : '';
+                const freezeTitle = isFrozen ? 'Unfreeze this item (currently locked)' : 'Freeze this item to prevent updates';
+                return `
+                <div class="rpg-item-card ${frozenClass}" data-field="assets" data-index="${index}">
+                    <button class="rpg-item-freeze ${frozenClass}" data-action="freeze-item" data-field="assets" data-index="${index}" data-item="${escapeHtml(item)}" title="${freezeTitle}">❄️</button>
                     <button class="rpg-item-remove" data-action="remove-item" data-field="assets" data-index="${index}" title="Remove asset">
                         <i class="fa-solid fa-times"></i>
                     </button>
                     <span class="rpg-item-name rpg-editable" contenteditable="true" data-field="assets" data-index="${index}" title="Click to edit">${escapeHtml(item)}</span>
                 </div>
-            `).join('');
+                `;
+            }).join('');
         } else {
             // List view: full-width rows
-            itemsHtml = items.map((item, index) => `
-                <div class="rpg-item-row" data-field="assets" data-index="${index}">
+            itemsHtml = items.map((item, index) => {
+                const isFrozen = isItemFrozen('assets', item);
+                const frozenClass = isFrozen ? 'rpg-item-frozen' : '';
+                const freezeTitle = isFrozen ? 'Unfreeze this item (currently locked)' : 'Freeze this item to prevent updates';
+                return `
+                <div class="rpg-item-row ${frozenClass}" data-field="assets" data-index="${index}">
                     <span class="rpg-item-name rpg-editable" contenteditable="true" data-field="assets" data-index="${index}" title="Click to edit">${escapeHtml(item)}</span>
-                    <button class="rpg-item-remove" data-action="remove-item" data-field="assets" data-index="${index}" title="${i18n.getTranslation('inventory.assets.removeAssetTitle')}">
-                        <i class="fa-solid fa-times"></i>
-                    </button>
+                    <div class="rpg-item-actions">
+                        <button class="rpg-item-freeze ${frozenClass}" data-action="freeze-item" data-field="assets" data-index="${index}" data-item="${escapeHtml(item)}" title="${freezeTitle}">❄️</button>
+                        <button class="rpg-item-remove" data-action="remove-item" data-field="assets" data-index="${index}" title="${i18n.getTranslation('inventory.assets.removeAssetTitle')}">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
         }
     }
 

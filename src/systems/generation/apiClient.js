@@ -71,7 +71,7 @@ export async function generateWithExternalAPI(messages, options = {}) {
         model: model.trim(),
         messages: messages,
         max_tokens: options.maxTokens || maxTokens || 2048,
-        temperature: temperature ?? 0.7
+        temperature: options.temperature !== undefined ? options.temperature : (temperature ?? 0.7)
     };
 
     // Add stop sequences if provided

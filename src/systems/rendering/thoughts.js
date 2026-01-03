@@ -39,6 +39,24 @@ function escapeHtmlAttr(str) {
 }
 
 /**
+ * Renders a relationship badge, supporting both emoji and custom images
+ * @param {string} value - Either an emoji or a custom image path in format [IMG:path]
+ * @returns {string} HTML string for the badge content
+ */
+function renderRelationshipBadge(value) {
+    if (!value) return '⚖️';
+
+    // Check if it's a custom image path
+    if (value.startsWith('[IMG:') && value.endsWith(']')) {
+        const imagePath = value.slice(5, -1); // Extract path from [IMG:path]
+        return `<img src="${imagePath}" class="rpg-relationship-badge-img" alt="Relationship" />`;
+    }
+
+    // Otherwise it's a standard emoji
+    return value;
+}
+
+/**
  * Interpolates color based on percentage value between low and high colors
  * @param {number} percentage - Value from 0-100
  * @param {string} lowColor - Hex color for low values (e.g., '#ff0000')
@@ -607,6 +625,9 @@ export function renderThoughts() {
                 <button id="rpg-regenerate-present-characters" class="rpg-btn-icon" title="Regenerate Present Characters" style="padding: 4px 8px; font-size: 14px;">
                     <i class="fa-solid fa-rotate"></i>
                 </button>
+                <button id="rpg-generate-new-character" class="rpg-btn-icon" title="Generate New Character with AI" style="padding: 4px 8px; font-size: 14px;">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </button>
                 <button id="rpg-open-character-editor" class="rpg-btn-icon" title="Advanced Character Editor" style="padding: 4px 8px; font-size: 14px;">
                     <i class="fa-solid fa-users-gear"></i>
                 </button>
@@ -684,14 +705,17 @@ export function renderThoughts() {
                 debugLog(`[RPG Thoughts] Final avatar for ${char.name}:`, typeof characterPortrait === 'string' ? characterPortrait.substring(0, 50) + '...' : characterPortrait);
 
                 // Get relationship badge - only if relationships are enabled in config
-                let relationshipBadge = '⚖️'; // Default
+                let relationshipBadgeHtml = '⚖️'; // Default
                 let relationshipFieldName = 'Relationship';
 
                 if (hasRelationshipEnabled) {
                     // In the new format, relationship is always stored in char.Relationship
                     if (char.Relationship) {
                         // Try to map text to emoji
-                        relationshipBadge = relationshipEmojis[char.Relationship] || char.Relationship;
+                        const relationshipValue = relationshipEmojis[char.Relationship] || char.Relationship;
+                        relationshipBadgeHtml = renderRelationshipBadge(relationshipValue);
+                    } else {
+                        relationshipBadgeHtml = renderRelationshipBadge('⚖️');
                     }
                 }
 
@@ -726,10 +750,15 @@ export function renderThoughts() {
 
                 html += `
                     <div class="rpg-character-card ${pinClass} ${freezeClass}" data-character-name="${escapedName}">
-                        <div class="rpg-character-avatar rpg-avatar-upload ${isCurrentlyGenerating ? 'rpg-avatar-generating' : ''}" data-character="${escapedName}" title="Click to upload custom avatar&#10;${avatarRightClickAction}">
-                            <img src="${characterPortrait}" alt="${escapedName}" onerror="this.style.opacity='0.5';this.onerror=null;" />
-                            ${isCurrentlyGenerating ? '<div class="rpg-generating-overlay"><i class="fa-solid fa-spinner fa-spin"></i></div>' : ''}
-                            ${hasRelationshipEnabled ? `<div class="rpg-relationship-badge rpg-editable" contenteditable="true" data-character="${escapedName}" data-field="${relationshipFieldName}" title="Click to edit (use emoji: ⚔️ ⚖️ ⭐ ❤️)">${relationshipBadge}</div>` : ''}
+                        <div style="display: flex; flex-direction: column; align-items: center;">
+                            <div class="rpg-character-avatar rpg-avatar-upload ${isCurrentlyGenerating ? 'rpg-avatar-generating' : ''}" data-character="${escapedName}" title="Click to upload custom avatar&#10;${avatarRightClickAction}">
+                                <img src="${characterPortrait}" alt="${escapedName}" onerror="this.style.opacity='0.5';this.onerror=null;" />
+                                ${isCurrentlyGenerating ? '<div class="rpg-generating-overlay"><i class="fa-solid fa-spinner fa-spin"></i></div>' : ''}
+                                ${hasRelationshipEnabled ? `<div class="rpg-relationship-badge rpg-editable" contenteditable="true" data-character="${escapedName}" data-field="${relationshipFieldName}" title="Click to edit (use emoji: ⚔️ ⚖️ ⭐ ❤️)">${relationshipBadgeHtml}</div>` : ''}
+                            </div>
+                            <button class="rpg-create-char-card-btn" data-character="${escapedName}" title="Create Character Card from this NPC" style="width: 90%; padding: 3px 6px; margin-top: 4px; font-size: 10px; background: #4a90e2; color: white; border: none; border-radius: 3px; cursor: pointer;">
+                                <i class="fa-solid fa-id-card"></i> Card
+                            </button>
                         </div>
                         <div class="rpg-character-content">
                             <div class="rpg-character-info">
@@ -805,6 +834,20 @@ export function renderThoughts() {
         }
     });
 
+    // Add event handler for generate new character button
+    $('#rpg-generate-new-character').off('click').on('click', async function() {
+        try {
+            console.log('[RPG Companion] Loading character creator module...');
+            const module = await import('../ui/characterCreatorUI.js');
+            console.log('[RPG Companion] Opening character creator...');
+            module.openCharacterCreatorModal();
+        } catch (err) {
+            console.error('[RPG Companion] Failed to load character creator:', err);
+            console.error('[RPG Companion] Error stack:', err.stack);
+            toastr.error('Failed to open character creator: ' + err.message, 'RPG Companion');
+        }
+    });
+
     // Add event handler for character editor button
     $('#rpg-open-character-editor').off('click').on('click', async function() {
         try {
@@ -846,6 +889,45 @@ export function renderThoughts() {
                 console.log('[RPG Companion] Updated data-character attributes from', oldCharacterName, 'to', value);
             }
         }
+    });
+
+    // Add emoji picker for character emoji fields (not relationship badge - it has auto text-to-emoji conversion)
+    $thoughtsContainer.find('.rpg-character-emoji').on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const $element = $(this);
+
+        // Import and call the emoji picker
+        import('../ui/trackerEditor.js').then(module => {
+            if (module.openEmojiPicker) {
+                // Create a temporary input to hold the value
+                const currentValue = $element.text().trim();
+                const $tempInput = $('<input type="text" style="position: absolute; opacity: 0; pointer-events: none;">');
+                $tempInput.val(currentValue);
+                $element.after($tempInput);
+
+                // Position the temp input at the element's location for picker positioning
+                const rect = $element[0].getBoundingClientRect();
+                $tempInput.css({
+                    position: 'fixed',
+                    top: rect.top + 'px',
+                    left: rect.left + 'px'
+                });
+
+                // Override blur handler to update the contenteditable element
+                $tempInput.on('blur', function() {
+                    const newValue = $(this).val();
+                    if (newValue) {
+                        $element.text(newValue);
+                        // Trigger the original blur handler to save
+                        $element.trigger('blur');
+                    }
+                    $tempInput.remove();
+                });
+
+                module.openEmojiPicker($tempInput);
+            }
+        });
     });
 
     // Add event handler for avatar uploads
@@ -943,6 +1025,25 @@ export function renderThoughts() {
         e.stopPropagation(); // Prevent event bubbling
         const characterName = $(this).data('character');
         regenerateCharacterFromCard(characterName);
+    });
+
+    // Add event handler for create character card button
+    $thoughtsContainer.find('.rpg-create-char-card-btn').on('click', async function(e) {
+        e.stopPropagation(); // Prevent event bubbling
+        const characterName = $(this).data('character');
+
+        try {
+            console.log('[RPG Companion] Loading character creator for:', characterName);
+            const module = await import('../ui/characterCreatorUI.js');
+
+            // Find the character data from presentCharacters
+            const charData = presentCharacters.find(c => c.name === characterName);
+            console.log('[RPG Companion] Opening character creator with data:', charData);
+            module.openCharacterCreatorModal(charData);
+        } catch (err) {
+            console.error('[RPG Companion] Failed to load character creator:', err);
+            toastr.error('Failed to open character creator: ' + err.message, 'RPG Companion');
+        }
     });
 
     // Add event handler for character removal
