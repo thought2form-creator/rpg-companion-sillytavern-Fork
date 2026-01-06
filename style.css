@@ -4527,8 +4527,8 @@ body:has(.rpg-panel.rpg-position-left) #sheld {
 }
 
 .rpg-editor-tab-content {
-    max-height: 60vh;
-    overflow-y: auto;
+    max-height: none;
+    overflow-y: visible;
 }
 
 .rpg-editor-section {

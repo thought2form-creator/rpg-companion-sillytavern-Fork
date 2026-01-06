@@ -575,7 +575,7 @@ export class EncounterModal {
 
                 // Get selected encounter profile
                 const selectedProfileId = configModal.querySelector('#config-encounter-profile').value;
-                console.log('[RPG Companion] Selected profile from dropdown:', selectedProfileId);
+                // console.log('[RPG Companion] Selected profile from dropdown:', selectedProfileId);
 
                 // Get lorebook filter settings
                 const filterEnabled = configModal.querySelector('#config-filter-worldinfo').checked;
@@ -632,10 +632,10 @@ export class EncounterModal {
                     }
                 });
 
-                console.log('[RPG Companion] Saving lorebook selections:', selectedLorebooks);
-                console.log('[RPG Companion] Saving entry selections:', selectedEntryUids);
-                console.log('[RPG Companion] Pinned lorebooks:', pinnedLorebooks);
-                console.log('[RPG Companion] Pinned entries:', pinnedEntryUids);
+                // console.log('[RPG Companion] Saving lorebook selections:', selectedLorebooks);
+                // console.log('[RPG Companion] Saving entry selections:', selectedEntryUids);
+                // console.log('[RPG Companion] Pinned lorebooks:', pinnedLorebooks);
+                // console.log('[RPG Companion] Pinned entries:', pinnedEntryUids);
 
                 // Save to settings
                 if (!extensionSettings.encounterSettings) {
@@ -649,8 +649,8 @@ export class EncounterModal {
 
                 // Store the selected profile for this encounter (overrides the active profile)
                 extensionSettings.encounterSettings.currentEncounterProfileId = selectedProfileId;
-                console.log('[RPG Companion] Saved currentEncounterProfileId:', selectedProfileId);
-                console.log('[RPG Companion] Verification - encounterSettings.currentEncounterProfileId:', extensionSettings.encounterSettings.currentEncounterProfileId);
+                // console.log('[RPG Companion] Saved currentEncounterProfileId:', selectedProfileId);
+                // console.log('[RPG Companion] Verification - encounterSettings.currentEncounterProfileId:', extensionSettings.encounterSettings.currentEncounterProfileId);
 
                 // Store lorebook filter settings
                 if (!extensionSettings.encounterWorldInfo) {
@@ -691,12 +691,12 @@ export class EncounterModal {
      * @param {HTMLElement} configModal - The config modal element
      */
     populateProfileDropdown(configModal) {
-        console.log('[RPG Companion] ========== populateProfileDropdown CALLED ==========');
+        // console.log('[RPG Companion] ========== populateProfileDropdown CALLED ==========');
         console.trace('[RPG Companion] Call stack:');
 
         // Check how many config modals exist in the DOM
         const allConfigModals = document.querySelectorAll('#rpg-narrative-config-modal');
-        console.log('[RPG Companion] Config modals in DOM:', allConfigModals.length);
+        // console.log('[RPG Companion] Config modals in DOM:', allConfigModals.length);
         if (allConfigModals.length > 1) {
             console.error('[RPG Companion] MULTIPLE CONFIG MODALS DETECTED:', allConfigModals.length);
             console.error('[RPG Companion] This will cause duplicate dropdown entries!');
@@ -708,8 +708,8 @@ export class EncounterModal {
             return;
         }
 
-        console.log('[RPG Companion] Dropdown element:', dropdown);
-        console.log('[RPG Companion] Dropdown parent modal ID:', configModal.id);
+        // console.log('[RPG Companion] Dropdown element:', dropdown);
+        // console.log('[RPG Companion] Dropdown parent modal ID:', configModal.id);
 
         // Get all profiles (presets + custom), filter out hidden ones
         const allProfiles = getAllProfiles();
@@ -719,13 +719,13 @@ export class EncounterModal {
         // Get the current encounter profile if set, otherwise use active profile
         const currentProfileId = extensionSettings.encounterSettings?.currentEncounterProfileId || activeProfile.id;
 
-        console.log('[RPG Companion] Populating profile dropdown');
-        console.log('[RPG Companion] - Total profiles:', allProfiles.length);
-        console.log('[RPG Companion] - Visible profiles:', visibleProfiles.length);
-        console.log('[RPG Companion] - Profile IDs:', visibleProfiles.map(p => p.id));
-        console.log('[RPG Companion] - Profile Names:', visibleProfiles.map(p => p.name));
-        console.log('[RPG Companion] - Current profile ID:', currentProfileId);
-        console.log('[RPG Companion] - Dropdown existing options before clear:', dropdown.options.length);
+        // console.log('[RPG Companion] Populating profile dropdown');
+        // console.log('[RPG Companion] - Total profiles:', allProfiles.length);
+        // console.log('[RPG Companion] - Visible profiles:', visibleProfiles.length);
+        // console.log('[RPG Companion] - Profile IDs:', visibleProfiles.map(p => p.id));
+        // console.log('[RPG Companion] - Profile Names:', visibleProfiles.map(p => p.name));
+        // console.log('[RPG Companion] - Current profile ID:', currentProfileId);
+        // console.log('[RPG Companion] - Dropdown existing options before clear:', dropdown.options.length);
 
         // Check for duplicates
         const idCounts = {};
@@ -741,7 +741,7 @@ export class EncounterModal {
         // Clear existing options
         dropdown.innerHTML = '';
 
-        console.log('[RPG Companion] - Dropdown options after clear:', dropdown.options.length);
+        // console.log('[RPG Companion] - Dropdown options after clear:', dropdown.options.length);
 
         // Add visible profiles to dropdown
         visibleProfiles.forEach(profile => {
@@ -761,8 +761,8 @@ export class EncounterModal {
             dropdown.appendChild(option);
         });
 
-        console.log('[RPG Companion] - Dropdown options after population:', dropdown.options.length);
-        console.log('[RPG Companion] Populated profile dropdown successfully');
+        // console.log('[RPG Companion] - Dropdown options after population:', dropdown.options.length);
+        // console.log('[RPG Companion] Populated profile dropdown successfully');
     }
 
     /**
@@ -775,14 +775,14 @@ export class EncounterModal {
 
         try {
             // Get world info books from SillyTavern's world_names array
-            console.log('[RPG Companion] Available world_names:', world_names);
+            // console.log('[RPG Companion] Available world_names:', world_names);
 
             // Clear existing content
             lorebookList.innerHTML = '';
 
             if (!world_names || world_names.length === 0) {
                 lorebookList.innerHTML = '<div style="color: #888; padding: 8px; text-align: center;">No lorebooks available</div>';
-                console.log('[RPG Companion] No lorebooks found in world_names');
+                // console.log('[RPG Companion] No lorebooks found in world_names');
                 return;
             }
 
@@ -790,8 +790,8 @@ export class EncounterModal {
             const pinnedBooks = extensionSettings.encounterWorldInfo?.pinnedLorebooks || [];
             const pinnedEntries = extensionSettings.encounterWorldInfo?.pinnedEntryUids || {}; // { lorebookName: { uid: true } }
 
-            console.log('[RPG Companion] Loading pinned lorebooks:', pinnedBooks);
-            console.log('[RPG Companion] Loading pinned entries:', pinnedEntries);
+            // console.log('[RPG Companion] Loading pinned lorebooks:', pinnedBooks);
+            // console.log('[RPG Companion] Loading pinned entries:', pinnedEntries);
 
             // Add "Clear All Pinned" button at the top (always show, update count live)
             const clearButtonDiv = document.createElement('div');
@@ -1015,7 +1015,7 @@ export class EncounterModal {
                 });
             }
 
-            console.log('[RPG Companion] Populated lorebook selector with', world_names.length, 'lorebooks');
+            // console.log('[RPG Companion] Populated lorebook selector with', world_names.length, 'lorebooks');
         } catch (error) {
             console.error('[RPG Companion] Error populating lorebook selector:', error);
             lorebookList.innerHTML = '<div style="color: #f88; padding: 8px;">Error loading lorebooks</div>';
@@ -1031,8 +1031,8 @@ export class EncounterModal {
      */
     async loadLorebookEntries(bookName, entriesDiv, pinnedEntries, isLorebookPinned) {
         try {
-            console.log(`[RPG Companion] Loading entries for lorebook: ${bookName}`);
-            console.log('[RPG Companion] Pinned entries:', pinnedEntries);
+            // console.log(`[RPG Companion] Loading entries for lorebook: ${bookName}`);
+            // console.log('[RPG Companion] Pinned entries:', pinnedEntries);
 
             const worldInfo = await loadWorldInfo(bookName);
 
@@ -1064,7 +1064,7 @@ export class EncounterModal {
 
                 if (isPinned) hasPinnedEntries = true;
 
-                console.log(`[RPG Companion] Entry ${entry.uid} (${entry.comment}): isPinned=${isPinned}, isSelected=${isSelected}`);
+                // console.log(`[RPG Companion] Entry ${entry.uid} (${entry.comment}): isPinned=${isPinned}, isSelected=${isSelected}`);
                 const displayName = entry.comment || entry.key?.join(', ') || 'Unnamed Entry';
 
                 const entryDiv = document.createElement('div');
@@ -1227,7 +1227,7 @@ export class EncounterModal {
             const lorebookItem = entriesDiv.closest('.lorebook-item');
             this.updateLorebookPinnedIndicator(lorebookItem, hasPinnedEntries);
 
-            console.log(`[RPG Companion] Loaded ${entries.length} entries for lorebook: ${bookName}`);
+            // console.log(`[RPG Companion] Loaded ${entries.length} entries for lorebook: ${bookName}`);
         } catch (error) {
             console.error('[RPG Companion] Error loading lorebook entries:', error);
             entriesDiv.innerHTML = '<div style="color: #f88; padding: 8px; text-align: center;">Error loading entries</div>';
@@ -1400,7 +1400,7 @@ export class EncounterModal {
         const header = this.modal.querySelector('.rpg-encounter-header h2');
         if (header) {
             header.innerHTML = `<i class="fa-solid fa-swords"></i> ${labels.encounterType} Encounter`;
-            console.log('[RPG Companion] Updated encounter header to:', labels.encounterType);
+            // console.log('[RPG Companion] Updated encounter header to:', labels.encounterType);
         }
     }
 
@@ -1538,7 +1538,7 @@ export class EncounterModal {
                     </div>
                     <div id="rpg-encounter-log" class="rpg-encounter-log">
                         <div class="rpg-encounter-log-entry">
-                            <em>Combat begins!</em>
+                            <em>${labels.encounterType} Encounter begins!</em>
                         </div>
                     </div>
                 </div>
@@ -2454,7 +2454,7 @@ export class EncounterModal {
             });
         }
 
-        console.log('[RPG Companion] Combat stats merged - only HP/statuses updated, all other data preserved');
+        // console.log('[RPG Companion] Combat stats merged - only HP/statuses updated, all other data preserved');
     }
 
     /**
@@ -2721,7 +2721,7 @@ export class EncounterModal {
                         { clearChatInput: false }
                     );
 
-                    console.log(`[RPG Companion] Added combat summary to chat as "${speakerName}"`);
+                    // console.log(`[RPG Companion] Added combat summary to chat as "${speakerName}"`);
                 } catch (sendError) {
                     console.error('[RPG Companion] Error using /sendas command:', sendError);
                     // Fallback: try appending to last message
@@ -2998,7 +2998,7 @@ export class EncounterModal {
             return;
         }
 
-        console.log('[RPG Companion] Regenerating request:', this.lastRequest.type);
+        // console.log('[RPG Companion] Regenerating request:', this.lastRequest.type);
 
         if (this.lastRequest.type === 'init') {
             // Retry initialization
@@ -3042,7 +3042,7 @@ export class EncounterModal {
             this.modal.setAttribute('data-weather', weather.toLowerCase());
         }
 
-        console.log('[RPG Companion] Applied environment styling:', styleNotes);
+        // console.log('[RPG Companion] Applied environment styling:', styleNotes);
     }
 
     /**
@@ -3336,18 +3336,18 @@ export class EncounterModal {
         player.hp = restoredHP;
 
         // Debug: Check player data before render
-        console.log('[RPG Companion] Player data before restore render:', JSON.stringify(player, null, 2));
+        // console.log('[RPG Companion] Player data before restore render:', JSON.stringify(player, null, 2));
 
         // Re-render the combat UI
         this.renderCombatUI(currentEncounter.combatStats);
 
         // Debug: Check player data after render
-        console.log('[RPG Companion] Player data after restore render:', JSON.stringify(currentEncounter.combatStats.party[actualIndex], null, 2));
+        // console.log('[RPG Companion] Player data after restore render:', JSON.stringify(currentEncounter.combatStats.party[actualIndex], null, 2));
 
         saveEncounterState();
 
         toastr.success(`${player.name} restored to ${restoredHP} ${labels.resourceLabel}!`);
-        console.log(`[RPG Companion] Player restored: ${player.name} -> ${restoredHP}/${player.maxHp} ${labels.resourceLabel}`);
+        // console.log(`[RPG Companion] Player restored: ${player.name} -> ${restoredHP}/${player.maxHp} ${labels.resourceLabel}`);
     }
 
     /**
@@ -3376,7 +3376,7 @@ export class EncounterModal {
         }
 
         // Debug: Log entity data when opening edit modal
-        console.log(`[RPG Companion] Opening edit modal for ${type} at index ${index}:`, JSON.stringify(entity, null, 2));
+        // console.log(`[RPG Companion] Opening edit modal for ${type} at index ${index}:`, JSON.stringify(entity, null, 2));
 
         const title = customTitle || (isEnemy ? 'Edit Enemy' : (entity.isPlayer ? 'Edit Your Actions' : 'Edit Party Member'));
 
