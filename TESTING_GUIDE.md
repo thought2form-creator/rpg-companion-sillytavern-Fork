@@ -109,3 +109,91 @@ Task: Generate updated data for "Bob"...
 
 This ensures consistency with how the extension normally generates tracker data.
 
+## Test 10: Encounter Profiles - Access Manager
+1. Open RPG Companion Settings (gear icon)
+2. Scroll to the "Advanced" section
+3. Click "Manage Encounter Profiles" button
+4. **Expected:**
+   - Modal opens with two-column layout
+   - Left column shows profile list (initially empty or with defaults)
+   - Right column shows profile editor form
+   - "New Profile" title at top of editor
+
+## Test 11: Encounter Profiles - Load Preset
+1. In the Encounter Profiles modal, find the "Load from Preset" dropdown
+2. Select "Social Confrontation"
+3. **Expected:**
+   - All form fields populate with preset values
+   - Profile Name: "Social Confrontation"
+   - Encounter Type: "social"
+   - HP Represents: "composure, leverage, and social standing"
+   - etc.
+
+## Test 12: Encounter Profiles - Create Profile
+1. Load a preset or fill in the form manually:
+   - Profile Name: "Test Profile"
+   - Encounter Type: "test"
+   - Encounter Goal: "test the system"
+   - Stakes Level: "medium"
+   - HP Represents: "test resource"
+   - Attacks Represent: "test actions"
+   - Statuses Represent: "test conditions"
+   - Summary Framing: "a test summary"
+2. Click "Save Profile"
+3. **Expected:**
+   - Toast notification "Profile 'Test Profile' created"
+   - Profile appears in the left column list
+   - Profile is highlighted as active
+
+## Test 13: Encounter Profiles - Edit Profile
+1. Click on a profile in the list
+2. Modify the "Encounter Goal" field
+3. Click "Save Profile"
+4. **Expected:**
+   - Toast notification "Profile '[name]' updated"
+   - Changes are saved
+   - Profile remains selected
+
+## Test 14: Encounter Profiles - Delete Profile
+1. Hover over a profile in the list
+2. Click the trash icon that appears
+3. **Expected:**
+   - Profile is removed from the list
+   - Form clears or shows another profile
+
+## Test 15: Encounter Profiles - Export Profile
+1. Select a profile from the list
+2. Click the "Export" button
+3. **Expected:**
+   - File download dialog appears
+   - JSON file downloads with name like "encounter-profile-social-confrontation.json"
+   - File contains valid JSON with all profile data
+
+## Test 16: Encounter Profiles - Import Profile
+1. Click the "Import" button
+2. Select a previously exported profile JSON file
+3. **Expected:**
+   - Toast notification "Profile '[name]' imported"
+   - Profile appears in the list
+   - Profile is automatically selected and displayed in editor
+
+## Test 17: Encounter Profiles - Validation
+1. Try to save a profile with empty required fields
+2. **Expected:**
+   - Toast error notification "Validation failed: [field names]"
+   - Profile is not saved
+   - Form remains open for editing
+
+## Test 18: Encounter Profiles - All Presets
+1. Test loading each preset:
+   - Traditional Combat
+   - Social Confrontation
+   - Stealth Mission
+   - Chase Sequence
+   - Investigation
+   - Negotiation
+2. **Expected:**
+   - Each preset loads with appropriate values
+   - All fields are populated
+   - Values make sense for the encounter type
+

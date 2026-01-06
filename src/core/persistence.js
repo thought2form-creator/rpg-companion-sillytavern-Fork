@@ -99,6 +99,23 @@ export function loadSettings() {
             migrateToTrackerConfig();
             saveSettings(); // Persist migration
         }
+
+        // Settings migration system
+        const currentVersion = extensionSettings.settingsVersion || 1;
+        let settingsChanged = false;
+
+        // v2 migration: Enable dynamic weather for existing users
+        if (currentVersion < 2) {
+            extensionSettings.enableDynamicWeather = true;
+            extensionSettings.showDynamicWeatherToggle = true;
+            extensionSettings.settingsVersion = 2;
+            settingsChanged = true;
+            console.log('[RPG Companion] Migrated settings to v2: enabled dynamic weather');
+        }
+
+        if (settingsChanged) {
+            saveSettings();
+        }
     } catch (error) {
         console.error('[RPG Companion] Error loading settings:', error);
         console.error('[RPG Companion] Error details:', error.message, error.stack);

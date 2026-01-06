@@ -14,6 +14,7 @@ import {
     parseCharacterRegenerationResponse,
     parseFieldRegenerationResponse
 } from './characterRegeneration.js';
+import { createPromptBuilder } from '../generation/modular-prompt-system/index.js';
 
 /**
  * Character state storage for save/load functionality
@@ -674,11 +675,20 @@ async function regenerateCharacter(card) {
                     currentData.stats[stat.name] = parseInt(card.find(`.rpg-char-editor-stat-input[data-stat="${stat.name}"]`).val()) || 50;
                 });
 
-                // Build prompt
-                const prompt = await buildCharacterRegenerationPrompt(characterName, currentData, guidance, enabledFields, enabledCharStats);
+                // Use the modular prompt builder system
+                const builder = createPromptBuilder(extensionSettings, 'characterEditor');
 
-                // Call LLM
-                const response = await callLLMForGeneration(prompt);
+                console.log('[RPG Companion] Regenerating character in editor:', characterName);
+                console.log('[RPG Companion] Using prompt builder with guidance:', guidance);
+
+                // Generate using the prompt builder with guidance and character context
+                const response = await builder.generate({
+                    guidance,
+                    characterName,
+                    currentData,
+                    enabledFields,
+                    enabledStats: enabledCharStats
+                });
 
                 // Parse response
                 const newData = parseCharacterRegenerationResponse(response, enabledFields, enabledCharStats);
@@ -744,25 +754,24 @@ async function regenerateCharacterField(card, fieldName) {
                     currentData[field.name] = card.find(`.rpg-char-editor-input[data-field="${field.name}"]`).val() || '';
                 });
 
-                // Build prompt
-                const prompt = await buildFieldRegenerationPrompt(characterName, fieldName, currentData, guidance, fieldConfig);
-
-                // Get field regeneration settings
-                const fieldSettings = extensionSettings.characterFieldRegenerationSettings || {};
+                // Determine which component to use: thoughtBubble for thoughts field, characterField for others
                 const isThoughtsField = fieldName.toLowerCase() === 'thoughts';
+                const componentType = isThoughtsField ? 'thoughtBubble' : 'characterField';
 
-                const maxTokens = isThoughtsField
-                    ? (fieldSettings.thoughtsMaxTokens || 150)
-                    : (fieldSettings.maxTokens || 100);
+                // Use the modular prompt builder system
+                const builder = createPromptBuilder(extensionSettings, componentType);
 
-                const stopSequences = isThoughtsField
-                    ? (fieldSettings.thoughtsStopSequences || ['\n\n', '###', 'Here is', 'I hope'])
-                    : (fieldSettings.stopSequences || ['\n\n', '\n', '.', '!', '?', '"', "'", '###']);
+                console.log('[RPG Companion] Regenerating character field:', fieldName, 'for', characterName);
+                console.log('[RPG Companion] Using prompt builder component:', componentType);
+                console.log('[RPG Companion] Using prompt builder with guidance:', guidance);
 
-                // Call LLM with max tokens and stop sequences
-                const response = await callLLMForGeneration(prompt, {
-                    maxTokens: maxTokens,
-                    stopSequences: stopSequences
+                // Generate using the prompt builder with guidance and field context
+                const response = await builder.generate({
+                    guidance,
+                    characterName,
+                    fieldName,
+                    currentData,
+                    fieldConfig
                 });
 
                 // Parse response
@@ -910,11 +919,20 @@ export async function regenerateCharacterFromCard(characterName) {
                 const characterStatsConfig = config?.characterStats;
                 const enabledCharStats = characterStatsConfig?.enabled && characterStatsConfig?.customStats?.filter(s => s && s.enabled && s.name) || [];
 
-                // Build prompt
-                const prompt = await buildCharacterRegenerationPrompt(characterName, currentChar, guidance, enabledFields, enabledCharStats);
+                // Use the modular prompt builder system
+                const builder = createPromptBuilder(extensionSettings, 'characterCard');
 
-                // Call LLM
-                const response = await callLLMForGeneration(prompt);
+                console.log('[RPG Companion] Regenerating character from card:', characterName);
+                console.log('[RPG Companion] Using prompt builder with guidance:', guidance);
+
+                // Generate using the prompt builder with guidance and character context
+                const response = await builder.generate({
+                    guidance,
+                    characterName,
+                    currentData: currentChar,
+                    enabledFields,
+                    enabledStats: enabledCharStats
+                });
 
                 if (!response) {
                     toastr.error('Failed to regenerate character', 'RPG Companion');
@@ -931,51 +949,66 @@ export async function regenerateCharacterFromCard(characterName) {
                 let characterUpdated = false;
 
                 for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i].trim();
+                    const line = lines[i];
+                    const trimmedLine = line.trim();
 
-                    // Check if this is the start of our target character
-                    if (line.startsWith('- ')) {
-                        const name = line.substring(2).trim();
+                    // Check if this is the start of a character (starts with "- ")
+                    if (trimmedLine.startsWith('- ')) {
+                        // If we were in the target character, we're done with it
+                        if (inTargetCharacter) {
+                            inTargetCharacter = false;
+                        }
+
+                        const name = trimmedLine.substring(2).trim();
                         if (name.toLowerCase() === characterName.toLowerCase()) {
                             inTargetCharacter = true;
                             characterUpdated = true;
-                            // Add character name with updated emoji
-                            newLines.push(`- ${updatedData.emoji || currentChar.emoji || '😊'} ${characterName}`);
 
-                            // Add all updated fields
+                            // Add character name (without emoji)
+                            newLines.push(`- ${characterName}`);
+
+                            // Build Details line: Emoji | Field1 | Field2 | ...
+                            const detailsParts = [updatedData.emoji || currentChar.emoji || '😊'];
                             enabledFields.forEach(field => {
                                 if (field.type !== 'relationship' && updatedData[field.name]) {
-                                    newLines.push(`  ${field.name}: ${updatedData[field.name]}`);
+                                    detailsParts.push(updatedData[field.name]);
                                 }
                             });
+                            newLines.push(`Details: ${detailsParts.join(' | ')}`);
 
                             // Add relationship if exists
                             if (updatedData.relationship) {
-                                newLines.push(`  Relationship: ${updatedData.relationship}`);
+                                newLines.push(`Relationship: ${updatedData.relationship}`);
                             }
 
                             // Add stats if enabled
                             if (enabledCharStats.length > 0 && updatedData.stats) {
                                 const statsLine = enabledCharStats.map(stat =>
                                     `${stat.name}: ${updatedData.stats[stat.name] || 50}%`
-                                ).join(', ');
-                                newLines.push(`  Stats: ${statsLine}`);
+                                ).join(' | ');
+                                newLines.push(`Stats: ${statsLine}`);
                             }
 
                             // Add thoughts
                             if (updatedData.thoughts) {
-                                newLines.push(`  Thoughts: ${updatedData.thoughts}`);
+                                newLines.push(`Thoughts: ${updatedData.thoughts}`);
                             }
 
-                            continue; // Skip the original line
+                            continue; // Skip the original character name line
                         } else {
-                            inTargetCharacter = false;
+                            // Different character, keep the line
+                            newLines.push(line);
                         }
                     }
-
-                    // Skip lines that belong to the target character
-                    if (!inTargetCharacter) {
-                        newLines.push(lines[i]);
+                    // If we're in the target character, skip their old field lines
+                    else if (inTargetCharacter) {
+                        // Skip Details, Relationship, Stats, Thoughts lines for target character
+                        // These have already been added with updated data
+                        continue;
+                    }
+                    // Not in target character, keep the line
+                    else {
+                        newLines.push(line);
                     }
                 }
 

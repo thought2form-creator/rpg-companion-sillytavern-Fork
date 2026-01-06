@@ -7,6 +7,7 @@ import { extensionSettings, committedTrackerData, lastGeneratedData } from '../.
 import { generateWithExternalAPI } from '../generation/apiClient.js';
 import { generateSeparateUpdatePrompt, generateRPGPromptText, generateTrackerInstructions } from '../generation/promptBuilder.js';
 import { getContext } from '../../../../../../extensions.js';
+import { createPromptBuilder } from '../generation/modular-prompt-system/index.js';
 
 const { generateRaw } = SillyTavern.getContext();
 
@@ -129,7 +130,9 @@ function mergeFrozenCharacters(newData) {
             // Check if this character is frozen
             if (extensionSettings.frozenCharacters[lowerName]) {
                 // Use frozen data instead of regenerated data
-                result.push(extensionSettings.frozenCharacters[lowerName]);
+                // Split frozen data into lines and push them individually
+                const frozenLines = extensionSettings.frozenCharacters[lowerName].split('\n');
+                result.push(...frozenLines);
                 skipCurrentChar = true;
                 frozenCharsReplaced++;
                 console.log(`[RPG Companion] Replaced regenerated data with frozen state for: ${currentCharName}`);
@@ -172,6 +175,9 @@ function mergeProtectedCharacters(newData) {
 }
 
 /**
+ * @deprecated This function is no longer used. Tracker sections now use the modular prompt builder system.
+ * See regenerateTrackerSectionDirect() which uses createPromptBuilder() instead.
+ *
  * Builds prompt for regenerating User Stats section
  * @param {string} guidance - Optional user guidance
  * @returns {Promise<Array>} Message array for generateRaw
@@ -189,6 +195,9 @@ export async function buildUserStatsRegenerationPrompt(guidance) {
 }
 
 /**
+ * @deprecated This function is no longer used. Tracker sections now use the modular prompt builder system.
+ * See regenerateTrackerSectionDirect() which uses createPromptBuilder() instead.
+ *
  * Builds prompt for regenerating Info Box section
  * @param {string} guidance - Optional user guidance
  * @returns {Promise<Array>} Message array for generateRaw
@@ -206,6 +215,9 @@ export async function buildInfoBoxRegenerationPrompt(guidance) {
 }
 
 /**
+ * @deprecated This function is no longer used. Tracker sections now use the modular prompt builder system.
+ * See regenerateTrackerSectionDirect() which uses createPromptBuilder() instead.
+ *
  * Builds prompt for regenerating Present Characters section
  * @param {string} guidance - Optional user guidance
  * @returns {Promise<Array>} Message array for generateRaw
@@ -242,11 +254,14 @@ const DEFAULT_SECTION_SETTINGS = {
 
 /**
  * Calls the LLM to generate tracker section data
+ * Uses Connection Manager if available, falls back to legacy methods
  * @param {Array} messages - Message array for the LLM
  * @param {string} section - Section being regenerated ('userStats', 'infoBox', 'characterThoughts')
  * @returns {Promise<string>} The LLM response
  */
 export async function callLLMForTrackerGeneration(messages, section) {
+    const { getContext } = await import('../../../../../../extensions.js');
+    const context = getContext();
     const isExternalMode = extensionSettings.generationMode === 'external';
 
     // Get per-section settings (with fallback to defaults)
@@ -254,6 +269,45 @@ export async function callLLMForTrackerGeneration(messages, section) {
     const maxTokens = sectionSettings?.maxTokens || DEFAULT_SECTION_SETTINGS[section].maxTokens;
     const stopSequences = sectionSettings?.stopSequences || DEFAULT_SECTION_SETTINGS[section].stopSequences;
 
+    console.log('[RPG Companion] Tracker generation settings:', {
+        section: section,
+        maxTokens: maxTokens,
+        stopSequences: stopSequences?.length || 0
+    });
+
+    // Try to use Connection Manager (same as Character Creator)
+    if (context.ConnectionManagerRequestService && context.ConnectionManagerRequestService.sendRequest) {
+        try {
+            // Get the active connection profile
+            const profiles = context.extensionSettings?.connectionManager?.profiles || [];
+            const activeProfile = profiles.find(p => p.isActive);
+
+            if (activeProfile) {
+                console.log('[RPG Companion] Using Connection Manager with profile:', activeProfile.name);
+                console.log('[RPG Companion] Max tokens for section:', maxTokens);
+
+                // Call Connection Manager (this properly handles maxTokens as third parameter!)
+                const response = await context.ConnectionManagerRequestService.sendRequest(
+                    activeProfile.id,
+                    messages,
+                    maxTokens
+                );
+
+                // Extract content from response
+                if (typeof response === 'string') {
+                    return response;
+                } else if (response && response.content) {
+                    return response.content;
+                } else {
+                    throw new Error('Invalid response format from Connection Manager');
+                }
+            }
+        } catch (error) {
+            console.warn('[RPG Companion] Connection Manager failed, falling back to legacy method:', error);
+        }
+    }
+
+    // Fallback to legacy methods
     try {
         let response;
 
@@ -270,7 +324,7 @@ export async function callLLMForTrackerGeneration(messages, section) {
             response = await generateRaw({
                 prompt: messages,
                 quietToLoud: false,
-                max_length: maxTokens,     // Limit output length (per-section)
+                responseLength: maxTokens,     // Limit output length (per-section)
                 stop_sequence: stopSequences  // Stop sequences (per-section)
             });
         }
@@ -506,35 +560,15 @@ export async function regenerateTrackerSectionDirect(sectionType, guidance) {
     const { renderThoughts } = await import('../rendering/thoughts.js');
     const { saveChatData, updateMessageSwipeData } = await import('../../core/persistence.js');
 
-    // Build prompt based on section type
-    let prompt;
-    switch (sectionType) {
-        case 'userStats':
-            prompt = await buildUserStatsRegenerationPrompt(guidance);
-            break;
-        case 'infoBox':
-            prompt = await buildInfoBoxRegenerationPrompt(guidance);
-            break;
-        case 'presentCharacters':
-            prompt = await buildPresentCharactersRegenerationPrompt(guidance);
-            break;
-        default:
-            throw new Error(`Unknown section type: ${sectionType}`);
-    }
+    // Use the modular prompt builder system
+    const builder = createPromptBuilder(extensionSettings, sectionType);
 
     console.log('[RPG Companion] Regenerating tracker section:', sectionType);
-    console.log('[RPG Companion] Prompt:', prompt);
+    console.log('[RPG Companion] Using prompt builder with guidance:', guidance);
 
-    // Map sectionType to section name for settings lookup
-    const sectionMap = {
-        'userStats': 'userStats',
-        'infoBox': 'infoBox',
-        'presentCharacters': 'characterThoughts'
-    };
-    const section = sectionMap[sectionType];
+    // Generate using the prompt builder with guidance
+    const response = await builder.generate({ guidance });
 
-    // Call LLM with per-section settings
-    const response = await callLLMForTrackerGeneration(prompt, section);
     console.log('[RPG Companion] LLM Response:', response);
 
     // Validate response

@@ -49,14 +49,34 @@ This fork adds extensive editing capabilities, selective regeneration, character
 
 ### Changes Made
 
-#### 1. Metadata Updates
+#### 1. Smart Emoji Picker Integration
+- **File:** `src/systems/ui/trackerEditor.js`
+- **New File:** `EMOJI_PICKER_INTEGRATION.md`
+- **Feature:** Intelligent emoji picker with automatic Extension-EmojiPicker detection
+- **Implementation:**
+  - Detects if SillyTavern's Extension-EmojiPicker is installed
+  - If available: Uses professional emoji-mart picker with 1000+ emojis, search, categories, skin tones
+  - If not available: Falls back to custom thought-bubble styled picker with 140+ curated emojis
+  - Graceful degradation ensures functionality in all scenarios
+  - No breaking changes - works standalone or enhanced
+- **Benefits:**
+  - Professional emoji picker when Extension-EmojiPicker is installed
+  - Search functionality to find emojis quickly
+  - Recent emojis tracking
+  - Multi-language support (20+ languages)
+  - Custom emoji support via emoji-mart API
+  - Consistent UX across SillyTavern
+- **Usage:** Click any emoji field in Tracker Editor, Character Editor, or Encounter Modal
+- **Documentation:** See `EMOJI_PICKER_INTEGRATION.md` for full details
+
+#### 2. Metadata Updates
 - **File:** `manifest.json`
   - Changed display_name to "RPG Companion Enhanced"
   - Updated version to 2.1.0
   - Updated author field to indicate fork
   - Updated homePage URL
 
-#### 2. Advanced Character Editor
+#### 3. Advanced Character Editor
 - **New File:** `src/systems/ui/characterEditor.js`
   - Created modal-based character editor with Quick Reply-style interface
   - Functions: `openCharacterEditor()`, `parseCharactersFromData()`, `renderCharacterEditorCard()`
@@ -319,6 +339,74 @@ This fork adds extensive editing capabilities, selective regeneration, character
 - **Original Extension:** Marinara (marinara_spaghetti)
 - **Fork Enhancements:** [Placeholder]
 - **Testing & Feedback:** [To be added]
+
+### 7. Encounter Profiles System (2026-01-05)
+
+**New Feature:** Complete encounter profile management system for reinterpreting combat mechanics
+
+**Files Added:**
+- `src/systems/features/encounterProfiles.js` - Core profile management logic
+- `src/systems/ui/encounterProfilesUI.js` - UI and event handlers
+- `docs/ENCOUNTER_PROFILES_GUIDE.md` - Comprehensive user documentation
+
+**Files Modified:**
+- `index.js` - Added import and initialization call
+- `template.html` - Added profile manager modal and settings button
+- `style.css` - Added profile UI styles
+- `IMPLEMENTATION_STATUS.md` - Added feature documentation
+- `TESTING_GUIDE.md` - Added testing procedures
+
+**Features Implemented:**
+- ✅ Profile manager modal with two-column layout (list + editor)
+- ✅ Create, edit, and delete custom encounter profiles
+- ✅ Six built-in presets:
+  - Traditional Combat
+  - Social Confrontation
+  - Stealth Mission
+  - Chase Sequence
+  - Investigation
+  - Negotiation
+- ✅ Load from preset dropdown for quick profile creation
+- ✅ Import/export profiles as JSON files
+- ✅ Profile validation (all required fields)
+- ✅ Active profile highlighting in list
+- ✅ Hover actions (edit/delete buttons)
+- ✅ Integration with settings modal (button in Advanced section)
+- ✅ Full styling and responsive design
+
+**Profile Structure:**
+Each profile contains 8 fields that redefine combat mechanics:
+1. Profile Name - Unique identifier
+2. Encounter Type - Short descriptor (combat, social, stealth, etc.)
+3. Encounter Goal - What success means
+4. Stakes Level - Importance (low/medium/high)
+5. HP Represents - What the HP bar means in this context
+6. Attacks Represent - What actions/attacks mean
+7. Statuses Represent - What status effects mean
+8. Summary Framing - How to frame encounter summaries
+
+**Use Cases:**
+- Social encounters where HP = composure and attacks = arguments
+- Stealth missions where HP = cover and attacks = detection attempts
+- Chase sequences where HP = stamina and attacks = obstacles
+- Investigations where HP = leads and attacks = red herrings
+- Negotiations where HP = leverage and attacks = offers
+- Any custom encounter type you can imagine
+
+**Technical Details:**
+- Profiles stored in `extensionSettings.encounterProfiles`
+- Each profile has a unique UUID
+- Automatic validation before saving
+- Export creates downloadable JSON file
+- Import validates and adds to profile list
+- Presets defined as constants for easy modification
+
+**Benefits:**
+- Reuse the same combat system for different encounter types
+- No need to modify core combat code for different scenarios
+- Easy to share profiles with the community
+- Quick setup with built-in presets
+- Flexible customization for any game system
 
 ---
 

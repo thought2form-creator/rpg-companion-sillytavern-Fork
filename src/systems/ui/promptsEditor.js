@@ -35,25 +35,105 @@ const DEFAULT_PROMPTS = {
     trackerInstructions: 'Replace X with actual numbers (e.g., 69) and replace all [placeholders] with concrete in-world details that {userName} perceives about the current scene and the present characters. Do NOT keep the brackets or placeholder text in your response. For example: [Location] becomes Forest Clearing, [Mood Emoji] becomes 😊. Consider the last trackers in the conversation (if they exist). Manage them accordingly and realistically; raise, lower, change, or keep the values unchanged based on the user\'s actions, the passage of time, and logical consequences (0% if the time progressed only by a few minutes, 1-5% normally, and above 5% only if a major time-skip/event occurs).',
     trackerContinuation: 'After updating the trackers, continue directly from where the last message in the chat history left off. Ensure the trackers you provide naturally reflect and influence the narrative. Character behavior, dialogue, and story events should acknowledge these conditions when relevant, such as fatigue affecting the protagonist\'s performance, low hygiene influencing their social interactions, environmental factors shaping the scene, a character\'s emotional state coloring their responses, and so on. Remember, all bracketed placeholders (e.g., [Location], [Mood Emoji]) MUST be replaced with actual content without the square brackets.',
     combatNarrative: 'Build novel prose. Break patterns from your previous responses by varying sentence structures, rhythms, formats, and openings. Track whether a sentence shape, cadence, sensory detail, or a descriptor appeared recently, and replace it with a different one or skip it entirely. If you mentioned a physical feature, mannerism, or expression once, move on. Don\'t fixate on the same traits every turn. Well-placed humor, unconventional similes, and subverted turns of phrase are encouraged. Avoid GPTisms, purple prose, and anaphoras, especially the negatives with "no/not/wasn\'t/didn\'t." Refrain from describing actions or emotions via negation; focus on what does happen, not what doesn\'t. Absolutely no asterisks, ellipses, or em-dashes. Explicit content is allowed, no plot armor. Do not play for {userName}. Keep your response length under 150 words. Never end on handover cues; finish naturally.\nCRITICAL: Do not repeat, echo, parrot, or restate distinctive words, phrases, and dialogues from the user\'s last message. If reacting to speech, show interpretation or response, not repetition.\nEXAMPLE: "Are you a gooner?" User asks.\nBAD: "Gooner?"\nGOOD: A flat look. "What type of question is that?"',
-    userStats: 'You are updating the User Stats section based on the recent narrative. Consider the user\'s actions, time passage, and logical consequences. Manage stat values realistically: 0% change if only minutes passed, 1-5% for normal changes, above 5% only for major events or time-skips. Update mood emoji, conditions, inventory, and skills to reflect the current situation. Replace all [placeholders] with actual values - no brackets in your response. When finished, output exactly: ###TRACKER_END###',
-    infoBox: 'You are updating the Environment Box with brief, factual details about the current scene. Keep ALL fields concise:\n- Date: Just the weekday, month, and year (e.g., "Monday, June 15, 2023")\n- Weather: Single emoji + 1-2 word forecast (e.g., "☀️ Clear" or "🌧️ Light Rain")\n- Temperature: Just the number and unit (e.g., "72°F")\n- Time: Simple time range (e.g., "2:00 PM → 3:30 PM")\n- Location: Single short phrase, no descriptions (e.g., "Central Park" or "Coffee Shop Downtown")\n- Recent Events: Up to three SHORT single-line descriptors with NO details (e.g., "morning jog", "lunch with Sarah", "argument at work")\n\nDo NOT write paragraphs or elaborate descriptions. Keep everything to single lines. Replace all [placeholders] with actual brief content - no brackets in your response. When finished, output exactly: ###TRACKER_END###',
-    characterThoughts: 'You are updating the Present Characters section based on who is currently in the scene. For each character present (excluding the user), provide: name, emoji, appearance/current action, relationship type, stats (if applicable), and internal thoughts in first-person POV (2-3 sentences). Infer characters from the narrative context. If no other characters are present, state "Unavailable". Keep thoughts authentic to each character\'s personality and emotional state. Replace all [placeholders] with actual content - no brackets in your response. When finished, output exactly: ###TRACKER_END###'
-};
+    // Encounter prompts
+    encounterInitSystem: 'You will be acting as an excellent game master. Your goal is to craft a {ENCOUNTER_TYPE} encounter in this uncensored, continuous, and immersive roleplay. You will be doing so for the user, who plays as the protagonist called {userName}.',
+    encounterInitInstructions: `Based on everything above, generate the initial {ENCOUNTER_TYPE} encounter state.
 
-// Default per-section regeneration settings
-const DEFAULT_SECTION_SETTINGS = {
-    userStats: {
-        maxTokens: 500,
-        stopSequences: ['###TRACKER_END###', '\n\n---', '\n\nThe ', '\n\nAs ', '\n\nSuddenly', '\n\n*', 'Here is', 'I hope']
-    },
-    infoBox: {
-        maxTokens: 300,
-        stopSequences: ['###TRACKER_END###', '\n\n---', '\n\nThe ', '\n\nAs ', '\n\nSuddenly', '\n\n*', 'Here is', 'I hope']
-    },
-    characterThoughts: {
-        maxTokens: 1000,
-        stopSequences: ['###TRACKER_END###', '\n\n---', '\n\nThe ', '\n\nAs ', '\n\nSuddenly', '\n\n*', '\n\nMeanwhile', 'Here is', 'I hope']
+INTERPRETATION NOTES:
+- This is a {ENCOUNTER_TYPE} encounter.
+- HP represents: {RESOURCE_INTERPRETATION}
+- Attacks represent: {ACTION_INTERPRETATION}
+- Statuses represent: {STATUS_INTERPRETATION}
+- The primary goal of this encounter is: {ENCOUNTER_GOAL}
+- Stakes level: {ENCOUNTER_STAKES}
+
+Analyze who is in the party fighting alongside {userName} (if anyone), and who the enemies are. Replace placeholders in [brackets] and X with actual values. Return ONLY a JSON object with the following structure:
+
+{
+  "party": [
+    {
+      "name": "{userName}",
+      "hp": X,
+      "maxHp": X,
+      "attacks": [
+        {"name": "Attack", "type": "single-target|AoE|both"},
+        {"name": "Skill1", "type": "single-target|AoE|both"}
+      ],
+      "items": ["Item1", "Item2"],
+      "statuses": [],
+      "isPlayer": true
     }
+    // Add other party members here if they exist in the context, changing isPlayer to false for them.
+  ],
+  "enemies": [
+    {
+      "name": "Enemy Name",
+      "hp": X,
+      "maxHp": X,
+      "attacks": [
+        {"name": "Attack1", "type": "single-target|AoE|both"},
+        {"name": "Attack2", "type": "single-target|AoE|both"}
+      ],
+      "statuses": [],
+      "description": "Brief enemy description",
+      "sprite": "emoji or brief visual description"
+    }
+    // Add all enemies participating in this combat
+  ],
+  "environment": "Brief description of the combat environment",
+  "styleNotes": {
+    "environmentType": "forest|dungeon|desert|cave|city|ruins|snow|water|castle|wasteland|plains|mountains|swamp|volcanic",
+    "atmosphere": "bright|dark|foggy|stormy|calm|eerie|chaotic|peaceful",
+    "timeOfDay": "dawn|day|dusk|night|twilight",
+    "weather": "clear|rainy|snowy|windy|stormy|overcast"
+  }
+}
+
+IMPORTANT NOTES:
+- For attacks array: Each attack must be an object with "name" and "type" properties
+  - "single-target": Can only target one character (enemy or ally)
+  - "AoE": Area of Effect - targets all enemies, but some AoE attacks (like storms, explosions) can also harm allies if the attack is indiscriminate
+  - "both": Player can choose to target a single enemy OR use as AoE
+- Statuses array: May start empty, but don't have to if characters applied them before the combat
+  - Each status has a format: {"name": "Status Name", "emoji": "💀", "duration": X}
+  - Examples: Poisoned (🧪), Burning (🔥), Blessed (✨), Stunned (💫), Weakened (⬇️), Strengthened (⬆️)
+
+The styleNotes object will be used to visually style the combat window - choose ONE value from each category that best fits the environment described in the chat history.
+
+Use the user's current stats, inventory, and skills to populate the party data. For {userName}'s attacks array, include their available skills. For items, include usable items from their inventory. Set HP based on their current Health stat if available.
+
+Ensure all party members and enemies have realistic HP values based on the setting and their descriptions. Return ONLY the JSON object, no other text.`,
+    combatActionSystem: 'You are the game master managing this {ENCOUNTER_TYPE} encounter. You must not play as {userName} - only describe what happens as a result of their actions/dialogues and control NPCs/enemies.',
+    combatActionInstructions: `INTERPRETATION RULES:
+- Interpret HP changes according to: {RESOURCE_INTERPRETATION}
+- Interpret attacks as: {ACTION_INTERPRETATION}
+- Interpret statuses as: {STATUS_INTERPRETATION}
+- Maintain encounter pacing appropriate to stakes: {ENCOUNTER_STAKES}
+
+Respond with a JSON object containing ONLY updated HP values and new status effects. DO NOT regenerate character descriptions, sprites, or environment:
+{
+  "combatStats": {
+    "party": [{ "name": "Name", "hp": X, "maxHp": X, "statuses": [...] }],
+    "enemies": [{ "name": "Name", "hp": X, "maxHp": X, "statuses": [...] }]
+  },
+  "enemyActions": [{ "enemyName": "Name", "action": "what they do", "target": "target" }],
+  "partyActions": [{ "memberName": "Name", "action": "what they do", "target": "target" }],
+  "narrative": "The roleplay description of what happens"
+}
+
+If all enemies are defeated or escape: add "combatEnd": true, "result": "victory". If all party defeated: add "combatEnd": true, "result": "defeat". It's also possible for the encounter to be interrupted by external interference (e.g., an explosion knocks everyone out, sudden environmental catastrophe, third party intervention, etc.). If this occurs, add "combatEnd": true, "result": "interrupted". Each status (if applied) has a format: {"name": "Status Name", "emoji": "💀", "duration": X}.
+Scale encounter difficulty appropriately based on stakes: {ENCOUNTER_STAKES} stakes encounters should match the narrative weight. Powerful entities should be formidable challenges requiring multiple rounds and strategic play. Weaker opposition should be resolved more quickly, typically 2-4 rounds.`,
+    combatSummarySystem: 'You are summarizing a {ENCOUNTER_TYPE} encounter that just concluded.',
+    combatSummaryInstructions: `SUMMARY FRAMING:
+- Frame the outcome as: {SUMMARY_FRAMING}
+- Reflect the stakes level: {ENCOUNTER_STAKES}
+- Preserve only narratively meaningful outcomes
+
+Provide a narrative summary of the entire encounter in a way that fits the style from the chat history. Start with [FIGHT CONCLUDED] on the first line, then provide the description.
+
+Build novel prose. Break patterns from your previous responses by varying sentence structures, rhythms, formats, and openings. If you last started with a narration, begin this one with dialogue; if with an action, switch to an internal thought. Track whether a sentence shape, cadence, sensory detail, or a descriptor appeared recently, and replace it with a different one or skip it entirely. If you mentioned a physical feature, mannerism, or expression once, move on. Don't fixate on the same traits every turn. Well-placed humor, unconventional similes, and subverted turns of phrase are encouraged. Avoid GPTisms, purple prose, and anaphoras, especially the negatives with "no/not/wasn't/didn't." Refrain from describing actions or emotions via negation; focus on what does happen, not what doesn't. Minimize asterisks, ellipses, and em-dashes. Explicit content is allowed. Never end on handover cues; finish naturally.
+
+Express {userName}'s actions and dialogue using indirect speech (e.g., "{userName} swung their sword" or "{userName} asked for help"). The summary should be 2-4 paragraphs and capture the essence of the battle.`
 };
 
 /**
@@ -97,13 +177,6 @@ export function initPromptsEditor() {
         toastr.success('Prompt restored to default');
     });
 
-    // Per-section restore buttons
-    $(document).on('click', '.rpg-restore-section-btn', function() {
-        const section = $(this).data('section');
-        restoreSectionToDefault(section);
-        toastr.success(`${section} settings restored to defaults`);
-    });
-
     // Close on background click
     $(document).on('click', '#rpg-prompts-editor-popup', function(e) {
         if (e.target.id === 'rpg-prompts-editor-popup') {
@@ -123,7 +196,6 @@ export function initPromptsEditor() {
 function openPromptsEditor() {
     // Store defaults for restore buttons
     window.RPG_DEFAULT_PROMPTS = DEFAULT_PROMPTS;
-    window.RPG_DEFAULT_SECTION_SETTINGS = DEFAULT_SECTION_SETTINGS;
 
     // Create temporary copy for cancel functionality
     tempPrompts = {
@@ -135,10 +207,12 @@ function openPromptsEditor() {
         trackerInstructions: extensionSettings.customTrackerInstructionsPrompt || '',
         trackerContinuation: extensionSettings.customTrackerContinuationPrompt || '',
         combatNarrative: extensionSettings.customCombatNarrativePrompt || '',
-        userStats: extensionSettings.customUserStatsPrompt || '',
-        infoBox: extensionSettings.customInfoBoxPrompt || '',
-        characterThoughts: extensionSettings.customCharacterThoughtsPrompt || '',
-        sectionRegenerationSettings: JSON.parse(JSON.stringify(extensionSettings.sectionRegenerationSettings || DEFAULT_SECTION_SETTINGS))
+        encounterInitSystem: extensionSettings.customEncounterInitSystemPrompt || '',
+        encounterInitInstructions: extensionSettings.customEncounterInitInstructionsPrompt || '',
+        combatActionSystem: extensionSettings.customCombatActionSystemPrompt || '',
+        combatActionInstructions: extensionSettings.customCombatActionInstructionsPrompt || '',
+        combatSummarySystem: extensionSettings.customCombatSummarySystemPrompt || '',
+        combatSummaryInstructions: extensionSettings.customCombatSummaryInstructionsPrompt || ''
     };
 
     // Load current values or defaults
@@ -150,26 +224,12 @@ function openPromptsEditor() {
     $('#rpg-prompt-tracker-instructions').val(extensionSettings.customTrackerInstructionsPrompt || DEFAULT_PROMPTS.trackerInstructions);
     $('#rpg-prompt-tracker-continuation').val(extensionSettings.customTrackerContinuationPrompt || DEFAULT_PROMPTS.trackerContinuation);
     $('#rpg-prompt-combat-narrative').val(extensionSettings.customCombatNarrativePrompt || DEFAULT_PROMPTS.combatNarrative);
-
-    // Load per-section prompts (prefill with defaults if empty)
-    $('#rpg-prompt-user-stats').val(extensionSettings.customUserStatsPrompt || DEFAULT_PROMPTS.userStats);
-    $('#rpg-prompt-info-box').val(extensionSettings.customInfoBoxPrompt || DEFAULT_PROMPTS.infoBox);
-    $('#rpg-prompt-character-thoughts').val(extensionSettings.customCharacterThoughtsPrompt || DEFAULT_PROMPTS.characterThoughts);
-
-    // Load per-section regeneration settings
-    const sectionSettings = extensionSettings.sectionRegenerationSettings || DEFAULT_SECTION_SETTINGS;
-
-    // User Stats
-    $('#rpg-user-stats-max-tokens').val(sectionSettings.userStats?.maxTokens || DEFAULT_SECTION_SETTINGS.userStats.maxTokens);
-    $('#rpg-user-stats-stop-sequences').val((sectionSettings.userStats?.stopSequences || DEFAULT_SECTION_SETTINGS.userStats.stopSequences).join('\n'));
-
-    // Info Box
-    $('#rpg-info-box-max-tokens').val(sectionSettings.infoBox?.maxTokens || DEFAULT_SECTION_SETTINGS.infoBox.maxTokens);
-    $('#rpg-info-box-stop-sequences').val((sectionSettings.infoBox?.stopSequences || DEFAULT_SECTION_SETTINGS.infoBox.stopSequences).join('\n'));
-
-    // Character Thoughts
-    $('#rpg-character-thoughts-max-tokens').val(sectionSettings.characterThoughts?.maxTokens || DEFAULT_SECTION_SETTINGS.characterThoughts.maxTokens);
-    $('#rpg-character-thoughts-stop-sequences').val((sectionSettings.characterThoughts?.stopSequences || DEFAULT_SECTION_SETTINGS.characterThoughts.stopSequences).join('\n'));
+    $('#rpg-prompt-encounter-init-system').val(extensionSettings.customEncounterInitSystemPrompt || DEFAULT_PROMPTS.encounterInitSystem);
+    $('#rpg-prompt-encounter-init-instructions').val(extensionSettings.customEncounterInitInstructionsPrompt || DEFAULT_PROMPTS.encounterInitInstructions);
+    $('#rpg-prompt-combat-action-system').val(extensionSettings.customCombatActionSystemPrompt || DEFAULT_PROMPTS.combatActionSystem);
+    $('#rpg-prompt-combat-action-instructions').val(extensionSettings.customCombatActionInstructionsPrompt || DEFAULT_PROMPTS.combatActionInstructions);
+    $('#rpg-prompt-combat-summary-system').val(extensionSettings.customCombatSummarySystemPrompt || DEFAULT_PROMPTS.combatSummarySystem);
+    $('#rpg-prompt-combat-summary-instructions').val(extensionSettings.customCombatSummaryInstructionsPrompt || DEFAULT_PROMPTS.combatSummaryInstructions);
 
     // Set theme to match current extension theme
     const theme = extensionSettings.theme || 'default';
@@ -205,44 +265,19 @@ function savePrompts() {
     extensionSettings.customTrackerInstructionsPrompt = $('#rpg-prompt-tracker-instructions').val().trim();
     extensionSettings.customTrackerContinuationPrompt = $('#rpg-prompt-tracker-continuation').val().trim();
     extensionSettings.customCombatNarrativePrompt = $('#rpg-prompt-combat-narrative').val().trim();
-
-    // Save per-section prompts
-    extensionSettings.customUserStatsPrompt = $('#rpg-prompt-user-stats').val().trim();
-    extensionSettings.customInfoBoxPrompt = $('#rpg-prompt-info-box').val().trim();
-    extensionSettings.customCharacterThoughtsPrompt = $('#rpg-prompt-character-thoughts').val().trim();
-
-    // Save per-section regeneration settings
-    if (!extensionSettings.sectionRegenerationSettings) {
-        extensionSettings.sectionRegenerationSettings = {};
-    }
-
-    // User Stats
-    extensionSettings.sectionRegenerationSettings.userStats = {
-        maxTokens: parseInt($('#rpg-user-stats-max-tokens').val()) || DEFAULT_SECTION_SETTINGS.userStats.maxTokens,
-        stopSequences: $('#rpg-user-stats-stop-sequences').val().trim()
-            .split('\n').map(s => s.trim()).filter(s => s.length > 0)
-    };
-
-    // Info Box
-    extensionSettings.sectionRegenerationSettings.infoBox = {
-        maxTokens: parseInt($('#rpg-info-box-max-tokens').val()) || DEFAULT_SECTION_SETTINGS.infoBox.maxTokens,
-        stopSequences: $('#rpg-info-box-stop-sequences').val().trim()
-            .split('\n').map(s => s.trim()).filter(s => s.length > 0)
-    };
-
-    // Character Thoughts
-    extensionSettings.sectionRegenerationSettings.characterThoughts = {
-        maxTokens: parseInt($('#rpg-character-thoughts-max-tokens').val()) || DEFAULT_SECTION_SETTINGS.characterThoughts.maxTokens,
-        stopSequences: $('#rpg-character-thoughts-stop-sequences').val().trim()
-            .split('\n').map(s => s.trim()).filter(s => s.length > 0)
-    };
+    extensionSettings.customEncounterInitSystemPrompt = $('#rpg-prompt-encounter-init-system').val().trim();
+    extensionSettings.customEncounterInitInstructionsPrompt = $('#rpg-prompt-encounter-init-instructions').val().trim();
+    extensionSettings.customCombatActionSystemPrompt = $('#rpg-prompt-combat-action-system').val().trim();
+    extensionSettings.customCombatActionInstructionsPrompt = $('#rpg-prompt-combat-action-instructions').val().trim();
+    extensionSettings.customCombatSummarySystemPrompt = $('#rpg-prompt-combat-summary-system').val().trim();
+    extensionSettings.customCombatSummaryInstructionsPrompt = $('#rpg-prompt-combat-summary-instructions').val().trim();
 
     saveSettings();
 }
 
 /**
  * Restore a specific prompt to its default
- * @param {string} promptType - Type of prompt to restore (html, plotRandom, plotNatural, avatar)
+ * @param {string} promptType - Type of prompt to restore (html, plotRandom, plotNatural, avatar, etc.)
  */
 function restorePromptToDefault(promptType) {
     const defaultValue = DEFAULT_PROMPTS[promptType] || '';
@@ -274,52 +309,30 @@ function restorePromptToDefault(promptType) {
         case 'combatNarrative':
             extensionSettings.customCombatNarrativePrompt = '';
             break;
+        case 'encounterInitSystem':
+            extensionSettings.customEncounterInitSystemPrompt = '';
+            break;
+        case 'encounterInitInstructions':
+            extensionSettings.customEncounterInitInstructionsPrompt = '';
+            break;
+        case 'combatActionSystem':
+            extensionSettings.customCombatActionSystemPrompt = '';
+            break;
+        case 'combatActionInstructions':
+            extensionSettings.customCombatActionInstructionsPrompt = '';
+            break;
+        case 'combatSummarySystem':
+            extensionSettings.customCombatSummarySystemPrompt = '';
+            break;
+        case 'combatSummaryInstructions':
+            extensionSettings.customCombatSummaryInstructionsPrompt = '';
+            break;
     }
 
     saveSettings();
 }
 
-/**
- * Restore a specific section's settings to defaults
- * @param {string} section - Section to restore ('userStats', 'infoBox', 'characterThoughts')
- */
-function restoreSectionToDefault(section) {
-    const defaults = DEFAULT_SECTION_SETTINGS[section];
-    if (!defaults) {
-        console.error(`[RPG Companion] Unknown section: ${section}`);
-        return;
-    }
 
-    // Restore prompt to default
-    const defaultPrompt = DEFAULT_PROMPTS[section] || '';
-    $(`#rpg-prompt-${section.replace(/([A-Z])/g, '-$1').toLowerCase()}`).val(defaultPrompt);
-
-    // Restore max tokens
-    $(`#rpg-${section.replace(/([A-Z])/g, '-$1').toLowerCase()}-max-tokens`).val(defaults.maxTokens);
-
-    // Restore stop sequences
-    $(`#rpg-${section.replace(/([A-Z])/g, '-$1').toLowerCase()}-stop-sequences`).val(defaults.stopSequences.join('\n'));
-
-    // Update settings
-    switch(section) {
-        case 'userStats':
-            extensionSettings.customUserStatsPrompt = '';
-            break;
-        case 'infoBox':
-            extensionSettings.customInfoBoxPrompt = '';
-            break;
-        case 'characterThoughts':
-            extensionSettings.customCharacterThoughtsPrompt = '';
-            break;
-    }
-
-    if (!extensionSettings.sectionRegenerationSettings) {
-        extensionSettings.sectionRegenerationSettings = {};
-    }
-    extensionSettings.sectionRegenerationSettings[section] = JSON.parse(JSON.stringify(defaults));
-
-    saveSettings();
-}
 
 /**
  * Restore all prompts to their defaults
@@ -333,22 +346,12 @@ function restoreAllToDefaults() {
     $('#rpg-prompt-tracker-instructions').val(DEFAULT_PROMPTS.trackerInstructions);
     $('#rpg-prompt-tracker-continuation').val(DEFAULT_PROMPTS.trackerContinuation);
     $('#rpg-prompt-combat-narrative').val(DEFAULT_PROMPTS.combatNarrative);
-    $('#rpg-prompt-user-stats').val(DEFAULT_PROMPTS.userStats);
-    $('#rpg-prompt-info-box').val(DEFAULT_PROMPTS.infoBox);
-    $('#rpg-prompt-character-thoughts').val(DEFAULT_PROMPTS.characterThoughts);
-
-    // Restore per-section regeneration settings
-    // User Stats
-    $('#rpg-user-stats-max-tokens').val(DEFAULT_SECTION_SETTINGS.userStats.maxTokens);
-    $('#rpg-user-stats-stop-sequences').val(DEFAULT_SECTION_SETTINGS.userStats.stopSequences.join('\n'));
-
-    // Info Box
-    $('#rpg-info-box-max-tokens').val(DEFAULT_SECTION_SETTINGS.infoBox.maxTokens);
-    $('#rpg-info-box-stop-sequences').val(DEFAULT_SECTION_SETTINGS.infoBox.stopSequences.join('\n'));
-
-    // Character Thoughts
-    $('#rpg-character-thoughts-max-tokens').val(DEFAULT_SECTION_SETTINGS.characterThoughts.maxTokens);
-    $('#rpg-character-thoughts-stop-sequences').val(DEFAULT_SECTION_SETTINGS.characterThoughts.stopSequences.join('\n'));
+    $('#rpg-prompt-encounter-init-system').val(DEFAULT_PROMPTS.encounterInitSystem);
+    $('#rpg-prompt-encounter-init-instructions').val(DEFAULT_PROMPTS.encounterInitInstructions);
+    $('#rpg-prompt-combat-action-system').val(DEFAULT_PROMPTS.combatActionSystem);
+    $('#rpg-prompt-combat-action-instructions').val(DEFAULT_PROMPTS.combatActionInstructions);
+    $('#rpg-prompt-combat-summary-system').val(DEFAULT_PROMPTS.combatSummarySystem);
+    $('#rpg-prompt-combat-summary-instructions').val(DEFAULT_PROMPTS.combatSummaryInstructions);
 
     // Clear all custom prompts
     extensionSettings.customHtmlPrompt = '';
@@ -359,10 +362,12 @@ function restoreAllToDefaults() {
     extensionSettings.customTrackerInstructionsPrompt = '';
     extensionSettings.customTrackerContinuationPrompt = '';
     extensionSettings.customCombatNarrativePrompt = '';
-    extensionSettings.customUserStatsPrompt = '';
-    extensionSettings.customInfoBoxPrompt = '';
-    extensionSettings.customCharacterThoughtsPrompt = '';
-    extensionSettings.sectionRegenerationSettings = JSON.parse(JSON.stringify(DEFAULT_SECTION_SETTINGS));
+    extensionSettings.customEncounterInitSystemPrompt = '';
+    extensionSettings.customEncounterInitInstructionsPrompt = '';
+    extensionSettings.customCombatActionSystemPrompt = '';
+    extensionSettings.customCombatActionInstructionsPrompt = '';
+    extensionSettings.customCombatSummarySystemPrompt = '';
+    extensionSettings.customCombatSummaryInstructionsPrompt = '';
 
     saveSettings();
 }
@@ -373,3 +378,8 @@ function restoreAllToDefaults() {
 export function getDefaultPrompts() {
     return { ...DEFAULT_PROMPTS };
 }
+
+/**
+ * Export DEFAULT_PROMPTS for use in other modules
+ */
+export { DEFAULT_PROMPTS };

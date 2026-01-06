@@ -688,7 +688,9 @@ Format: Each field starts with **Field Name:** followed by *[Instruction text]* 
 
     // Helper function to refresh template list
     const refreshTemplateList = async () => {
+        console.log('[Character Creator] refreshTemplateList called');
         const templates = await getAvailableTemplates();
+        console.log('[Character Creator] Templates found:', templates);
         const selector = $('#template-selector');
         const currentValue = selector.val();
 
@@ -702,10 +704,14 @@ Format: Each field starts with **Field Name:** followed by *[Instruction text]* 
         if (currentValue && templates.includes(currentValue)) {
             selector.val(currentValue);
         }
+        console.log('[Character Creator] Template list refreshed, total templates:', templates.length);
     };
 
     // Refresh templates button
-    $('#refresh-templates-btn').on('click', async function() {
+    const refreshBtn = $('#refresh-templates-btn');
+    console.log('[Character Creator] Refresh button found:', refreshBtn.length > 0);
+    refreshBtn.on('click', async function() {
+        console.log('[Character Creator] Refresh button clicked');
         try {
             toastr.info('Refreshing template list...', 'Character Creator');
             await refreshTemplateList();

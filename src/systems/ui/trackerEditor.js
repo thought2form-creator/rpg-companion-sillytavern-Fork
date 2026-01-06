@@ -4,10 +4,11 @@
  */
 import { i18n } from '../../core/i18n.js';
 import { extensionSettings } from '../../core/state.js';
-import { saveSettings } from '../../core/persistence.js';
+import { saveSettings, saveChatData } from '../../core/persistence.js';
 import { renderUserStats } from '../rendering/userStats.js';
 import { renderInfoBox } from '../rendering/infoBox.js';
 import { renderThoughts } from '../rendering/thoughts.js';
+import { showEmojiPicker, hideEmojiPicker } from './emojiMartPicker.js';
 
 let $editorModal = null;
 let activeTab = 'userStats';
@@ -38,17 +39,19 @@ export function initTrackerEditor() {
     // Save button
     $(document).on('click', '#rpg-editor-save', function() {
         applyTrackerConfig();
-        closeTrackerEditor();
+        closeTrackerEditor(false); // Don't cancel, just close after saving
     });
 
     // Cancel button
     $(document).on('click', '#rpg-editor-cancel', function() {
-        closeTrackerEditor();
+        closeTrackerEditor(true); // Cancel = restore from temp
     });
 
     // Close X button
     $(document).on('click', '#rpg-close-tracker-editor', function() {
-        closeTrackerEditor();
+        // Save changes when closing via X button
+        applyTrackerConfig();
+        closeTrackerEditor(false);
     });
 
     // Reset button
@@ -60,13 +63,25 @@ export function initTrackerEditor() {
     // Close on background click
     $(document).on('click', '#rpg-tracker-editor-popup', function(e) {
         if (e.target.id === 'rpg-tracker-editor-popup') {
-            closeTrackerEditor();
+            // Save changes when closing via background click
+            applyTrackerConfig();
+            closeTrackerEditor(false);
         }
     });
 
     // Open button
     $(document).on('click', '#rpg-open-tracker-editor', function() {
         openTrackerEditor();
+    });
+
+    // Export button
+    $(document).on('click', '#rpg-editor-export', function() {
+        exportTrackerPreset();
+    });
+
+    // Import button
+    $(document).on('click', '#rpg-editor-import', function() {
+        importTrackerPreset();
     });
 }
 
@@ -87,11 +102,15 @@ function openTrackerEditor() {
 
 /**
  * Close the tracker editor modal
+ * @param {boolean} cancel - If true, restore from tempConfig (discard changes). If false, keep changes.
  */
-function closeTrackerEditor() {
-    // Restore from temp if canceling
-    if (tempConfig) {
+function closeTrackerEditor(cancel = false) {
+    // Only restore from temp if explicitly canceling
+    if (cancel && tempConfig) {
         extensionSettings.trackerConfig = tempConfig;
+        tempConfig = null;
+    } else {
+        // Clear temp config without restoring (changes are kept)
         tempConfig = null;
     }
 
@@ -186,6 +205,103 @@ function resetToDefaults() {
             }
         }
     };
+}
+
+/**
+ * Export current tracker configuration to a JSON file
+ */
+function exportTrackerPreset() {
+    try {
+        // Get the current tracker configuration
+        const config = extensionSettings.trackerConfig;
+
+        // Create a preset object with metadata
+        const preset = {
+            name: 'Custom Tracker Preset',
+            version: '1.0',
+            exportDate: new Date().toISOString(),
+            trackerConfig: JSON.parse(JSON.stringify(config)) // Deep copy
+        };
+
+        // Convert to JSON
+        const jsonString = JSON.stringify(preset, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+
+        // Create download link
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+
+        // Generate filename with timestamp
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        link.download = `rpg-tracker-preset-${timestamp}.json`;
+
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        console.log('[RPG Companion] Tracker preset exported successfully');
+        toastr.success(i18n.getTranslation('template.trackerEditorModal.messages.exportSuccess') || 'Tracker preset exported successfully!');
+    } catch (error) {
+        console.error('[RPG Companion] Error exporting tracker preset:', error);
+        toastr.error(i18n.getTranslation('template.trackerEditorModal.messages.exportError') || 'Failed to export tracker preset. Check console for details.');
+    }
+}
+
+/**
+ * Import tracker configuration from a JSON file
+ */
+function importTrackerPreset() {
+    // Create file input
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+
+            // Validate the imported data
+            if (!data.trackerConfig) {
+                throw new Error('Invalid preset file: missing trackerConfig');
+            }
+
+            // Validate required sections
+            if (!data.trackerConfig.userStats || !data.trackerConfig.infoBox || !data.trackerConfig.presentCharacters) {
+                throw new Error('Invalid preset file: missing required configuration sections');
+            }
+
+            // Ask for confirmation
+            const confirmMessage = i18n.getTranslation('template.trackerEditorModal.messages.importConfirm') ||
+                'This will replace your current tracker configuration. Continue?';
+
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+
+            // Apply the imported configuration
+            extensionSettings.trackerConfig = JSON.parse(JSON.stringify(data.trackerConfig)); // Deep copy
+
+            // Re-render the editor UI
+            renderEditorUI();
+
+            console.log('[RPG Companion] Tracker preset imported successfully');
+            toastr.success(i18n.getTranslation('template.trackerEditorModal.messages.importSuccess') || 'Tracker preset imported successfully!');
+        } catch (error) {
+            console.error('[RPG Companion] Error importing tracker preset:', error);
+            toastr.error(i18n.getTranslation('template.trackerEditorModal.messages.importError') ||
+                `Failed to import tracker preset: ${error.message}`);
+        }
+    };
+
+    // Trigger file selection
+    input.click();
 }
 
 /**
@@ -830,11 +946,34 @@ function setupPresentCharactersListeners() {
 }
 
 /**
- * Opens emoji picker popup (styled like thought bubble)
+ * Opens emoji picker popup - uses our integrated emoji-mart picker
  * @param {jQuery} $input - The input element to insert emoji into
  */
-export function openEmojiPicker($input) {
-    console.log('[RPG] openEmojiPicker called');
+export async function openEmojiPicker($input) {
+    console.log('[RPG Companion] Opening emoji picker...');
+
+    try {
+        const success = showEmojiPicker($input[0], (emoji) => {
+            $input.val(emoji).trigger('blur');
+            hideEmojiPicker();
+        });
+
+        if (!success) {
+            console.log('[RPG Companion] Emoji-mart picker not available, using fallback');
+            return openCustomEmojiPicker($input);
+        }
+    } catch (e) {
+        console.log('[RPG Companion] Error opening emoji-mart picker, using fallback:', e.message);
+        return openCustomEmojiPicker($input);
+    }
+}
+
+/**
+ * Opens custom emoji picker popup (styled like thought bubble) - FALLBACK
+ * @param {jQuery} $input - The input element to insert emoji into
+ */
+function openCustomEmojiPicker($input) {
+    console.log('[RPG Companion] Opening custom emoji picker');
     const emojis = [
         '❤️', '💔', '💕', '💖', '💗', '💙', '💚', '💛', '🧡', '💜',
         '⭐', '✨', '🌟', '💫', '⚡', '🔥', '💥', '✅', '❌', '⚠️',
@@ -958,12 +1097,19 @@ export function openEmojiPicker($input) {
         top: `${top}px`,
         left: `${left}px`,
         transform: 'translateY(-50%)',
-        zIndex: 999999
+        zIndex: 999999,
+        display: 'block',
+        visibility: 'visible',
+        opacity: '1'
     });
 
     // Add to body
     $('body').append($picker);
-    console.log('[RPG] Picker appended to body, element:', $picker[0]);
+    console.log('[RPG Companion] Picker appended to body');
+    console.log('[RPG Companion] Picker position:', { top, left, zIndex: 999999 });
+    console.log('[RPG Companion] Picker element:', $picker[0]);
+    console.log('[RPG Companion] Picker visible:', $picker.is(':visible'));
+    console.log('[RPG Companion] Picker dimensions:', { width: $picker.width(), height: $picker.height() });
 
     // Click handlers for emoji buttons
     $picker.find('.rpg-emoji-choice').on('click', function() {

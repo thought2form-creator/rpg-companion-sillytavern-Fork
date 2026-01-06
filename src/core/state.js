@@ -27,10 +27,12 @@ export let extensionSettings = {
     enableSpotifyMusic: false, // Enable Spotify music integration (asks AI for Spotify URLs)
     customSpotifyPrompt: '', // Custom Spotify prompt text (empty = use default)
     enableSnowflakes: false, // Enable festive snowflakes effect
+    enableDynamicWeather: false, // Enable dynamic weather effects
     dismissedHolidayPromo: false, // User dismissed the holiday promotion banner
     showHtmlToggle: true, // Show Immersive HTML toggle in main panel
     showSpotifyToggle: true, // Show Spotify Music toggle in main panel
     showSnowflakesToggle: true, // Show Snowflakes Effect toggle in main panel
+    showDynamicWeatherToggle: true, // Show Dynamic Weather toggle in main panel
     skipInjectionsForGuided: 'none', // skip injections for instruct injections and quiet prompts (GuidedGenerations compatibility)
     enablePlotButtons: true, // Show plot progression buttons above chat input
     saveTrackerHistory: false, // Save tracker data in chat history for each message
@@ -53,6 +55,15 @@ export let extensionSettings = {
             maxTokens: 1000,
             stopSequences: ['\n\n---', '\n\nThe ', '\n\nAs ', '\n\nSuddenly', '\n\n*', '\n\nMeanwhile', 'Here is', 'I hope']
         }
+    },
+    // Character field regeneration settings (for Character Editor, Present Character cards, Thought bubbles)
+    characterFieldRegenerationSettings: {
+        contextDepth: 4, // How many messages to include for field regeneration context
+        maxTokens: 100, // Max tokens for field regeneration (short outputs)
+        stopSequences: ['\n\n', '\n', '.', '!', '?', '"', "'", '###', 'Here is', 'I hope', 'The ', 'As ', 'Suddenly'], // Stop sequences for short field outputs
+        thoughtsMaxTokens: 150, // Max tokens specifically for thoughts field (slightly longer)
+        thoughtsStopSequences: ['\n\n', '###', 'Here is', 'I hope', 'The character', 'As the'], // Stop sequences for thoughts
+        fullRegenMaxTokens: 2000 // Max tokens for full character regeneration
     },
     theme: 'default', // Theme: default, sci-fi, fantasy, cyberpunk, custom
     customColors: {

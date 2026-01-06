@@ -6,6 +6,7 @@ import { power_user } from '../../../power-user.js';
 // Core modules
 import { extensionName, extensionFolderPath } from './src/core/config.js';
 import { i18n } from './src/core/i18n.js';
+import { initEmojiPicker } from './src/systems/ui/emojiMartPicker.js';
 import {
     extensionSettings,
     lastGeneratedData,
@@ -70,6 +71,7 @@ import { renderInventory } from './src/systems/rendering/inventory.js';
 import { renderQuests } from './src/systems/rendering/quests.js';
 import { renderMusicPlayer } from './src/systems/rendering/musicPlayer.js';
 import { toggleSnowflakes, initSnowflakes } from './src/systems/ui/snowflakes.js';
+import { initWeatherEffects, toggleDynamicWeather, updateWeatherEffect } from './src/systems/ui/weatherEffects.js';
 
 // Interaction modules
 import { initInventoryEventListeners } from './src/systems/interaction/inventoryActions.js';
@@ -99,6 +101,12 @@ import {
 import {
     initPromptsEditor
 } from './src/systems/ui/promptsEditor.js';
+import {
+    initPromptBuilderUI
+} from './src/systems/ui/promptBuilderUI.js';
+import {
+    initEncounterProfilesUI
+} from './src/systems/ui/encounterProfilesUI.js';
 import {
     initChapterCheckpointUI,
     injectCheckpointButton,
@@ -252,6 +260,14 @@ async function initUI() {
     // Initialize i18n
     await i18n.init();
 
+    // Initialize emoji picker
+    try {
+        await initEmojiPicker();
+        console.log('[RPG Companion] Emoji picker initialized');
+    } catch (error) {
+        console.warn('[RPG Companion] Failed to initialize emoji picker:', error);
+    }
+
     // Only initialize UI if extension is enabled
     if (!extensionSettings.enabled) {
         console.log('[RPG Companion] Extension disabled - skipping UI initialization');
@@ -396,6 +412,12 @@ async function initUI() {
         extensionSettings.enableSnowflakes = $(this).prop('checked');
         saveSettings();
         toggleSnowflakes(extensionSettings.enableSnowflakes);
+    });
+
+    $('#rpg-toggle-dynamic-weather').on('change', function() {
+        extensionSettings.enableDynamicWeather = $(this).prop('checked');
+        toggleDynamicWeather(extensionSettings.enableDynamicWeather);
+        saveSettings();
     });
 
     $('#rpg-dismiss-promo').on('click', function() {
@@ -558,6 +580,18 @@ async function initUI() {
 
     $('#rpg-toggle-show-snowflakes-toggle').on('change', function() {
         extensionSettings.showSnowflakesToggle = $(this).prop('checked');
+        saveSettings();
+        updateFeatureTogglesVisibility();
+    });
+
+    $('#rpg-toggle-show-dynamic-weather-toggle').on('change', function() {
+        extensionSettings.showDynamicWeatherToggle = $(this).prop('checked');
+        if (!$(this).prop('checked')) {
+            // Also disable the feature when hiding the toggle
+            extensionSettings.enableDynamicWeather = false;
+            $('#rpg-toggle-dynamic-weather').prop('checked', false);
+            toggleDynamicWeather(false);
+        }
         saveSettings();
         updateFeatureTogglesVisibility();
     });
@@ -758,11 +792,13 @@ async function initUI() {
     $('#rpg-toggle-html-prompt').prop('checked', extensionSettings.enableHtmlPrompt);
     $('#rpg-toggle-spotify-music').prop('checked', extensionSettings.enableSpotifyMusic);
     $('#rpg-toggle-snowflakes').prop('checked', extensionSettings.enableSnowflakes);
+    $('#rpg-toggle-dynamic-weather').prop('checked', extensionSettings.enableDynamicWeather);
 
     // Feature toggle visibility settings
     $('#rpg-toggle-show-html-toggle').prop('checked', extensionSettings.showHtmlToggle ?? true);
     $('#rpg-toggle-show-spotify-toggle').prop('checked', extensionSettings.showSpotifyToggle ?? true);
     $('#rpg-toggle-show-snowflakes-toggle').prop('checked', extensionSettings.showSnowflakesToggle ?? true);
+    $('#rpg-toggle-show-dynamic-weather-toggle').prop('checked', extensionSettings.showDynamicWeatherToggle ?? true);
 
     // Hide holiday promo if previously dismissed
     if (extensionSettings.dismissedHolidayPromo) {
@@ -773,6 +809,17 @@ async function initUI() {
     $('#rpg-toggle-encounters').prop('checked', extensionSettings.encounterSettings?.enabled ?? true);
     $('#rpg-encounter-history-depth').val(extensionSettings.encounterSettings?.historyDepth ?? 8);
     $('#rpg-toggle-autosave-logs').prop('checked', extensionSettings.encounterSettings?.autoSaveLogs ?? true);
+
+    // Initialize encounter profile storage if not exists
+    if (!extensionSettings.encounterSettings) {
+        extensionSettings.encounterSettings = {};
+    }
+    if (!extensionSettings.encounterSettings.profiles) {
+        extensionSettings.encounterSettings.profiles = [];
+    }
+    if (!extensionSettings.encounterSettings.activeProfileId) {
+        extensionSettings.encounterSettings.activeProfileId = 'default-combat';
+    }
 
     // Combat narrative style
     $('#rpg-combat-tense').val(extensionSettings.encounterSettings?.combatNarrative?.tense ?? 'present');
@@ -851,6 +898,23 @@ async function initUI() {
     setupSettingsPopup();
     initTrackerEditor();
     initPromptsEditor();
+
+    // Initialize Prompt Builder UI
+    try {
+        initPromptBuilderUI();
+    } catch (error) {
+        console.error('[RPG Companion] Prompt Builder UI initialization failed:', error);
+        // Non-critical - continue without it
+    }
+
+    // Initialize Encounter Profiles UI
+    try {
+        initEncounterProfilesUI();
+    } catch (error) {
+        console.error('[RPG Companion] Encounter Profiles UI initialization failed:', error);
+        // Non-critical - continue without it
+    }
+
     addDiceQuickReply();
     setupPlotButtons(sendPlotProgression, openEncounterModal);
     setupCharacterCreatorButton(); // Add character creator button
@@ -1052,6 +1116,20 @@ jQuery(async () => {
             console.error('[RPG Companion] Snowflakes initialization failed:', error);
             // Non-critical - continue without it
         }
+
+        // Initialize weather effects if enabled
+        try {
+            initWeatherEffects();
+        } catch (error) {
+            console.error('[RPG Companion] Weather effects initialization failed:', error);
+            // Non-critical - continue without it
+        }
+
+        // Expose weather effect functions globally for cross-module access
+        if (!window.RPGCompanion) {
+            window.RPGCompanion = {};
+        }
+        window.RPGCompanion.updateWeatherEffect = updateWeatherEffect;
 
         console.log('[RPG Companion] ✅ Extension loaded successfully');
     } catch (error) {

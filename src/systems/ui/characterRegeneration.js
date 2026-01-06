@@ -18,6 +18,7 @@ import { chat, characters, this_chid, generateRaw } from '../../../../../../../s
 import { selected_group, getGroupMembers, groups } from '../../../../../../group-chats.js';
 import { extensionSettings, committedTrackerData } from '../../core/state.js';
 import { generateWithExternalAPI } from '../generation/apiClient.js';
+import { createPromptBuilder } from '../generation/modular-prompt-system/index.js';
 
 /**
  * FUTURE HOOK: Character Library Integration
@@ -136,6 +137,9 @@ function getTrackerContext() {
 }
 
 /**
+ * @deprecated This function is no longer used. Character regeneration now uses the modular prompt builder system.
+ * See characterEditor.js which uses createPromptBuilder() with 'characterCard' or 'characterEditor' components.
+ *
  * Builds the prompt for regenerating a full character
  * @param {string} characterName - Name of the character to regenerate
  * @param {Object} currentData - Current character data
@@ -199,7 +203,16 @@ export async function buildCharacterRegenerationPrompt(characterName, currentDat
         prompt += `User's guidance for regeneration: ${guidance.trim()}\n\n`;
     }
 
-    // Add instructions for regeneration
+    // Check for custom prompt for full character regeneration
+    const customPrompt = extensionSettings.customCharacterFullRegenPrompt;
+
+    // If custom prompt exists, use it instead of default instructions
+    if (customPrompt && customPrompt.trim()) {
+        prompt += customPrompt.trim();
+        return prompt;
+    }
+
+    // Default instructions (if no custom prompt)
     prompt += `Task: Generate updated data for the character "${characterName}" based on the current scene, conversation context, and character information provided above.\n\n`;
 
     if (guidance && guidance.trim()) {
@@ -237,6 +250,10 @@ export async function buildCharacterRegenerationPrompt(characterName, currentDat
 }
 
 /**
+ * @deprecated This function is no longer used. Field regeneration now uses the modular prompt builder system.
+ * See characterEditor.js which uses createPromptBuilder() with 'characterField' component.
+ * See thoughts.js regenerateIndividualThought() which uses createPromptBuilder() with 'thoughtBubble' component.
+ *
  * Builds the prompt for regenerating a single field
  * @param {string} characterName - Name of the character
  * @param {string} fieldName - Name of the field to regenerate
@@ -285,11 +302,23 @@ export async function buildFieldRegenerationPrompt(characterName, fieldName, cur
         prompt += `User's guidance: ${guidance.trim()}\n\n`;
     }
 
-    // Add instructions
+    // Check for custom prompt based on field type
+    const isThoughtsField = fieldName.toLowerCase() === 'thoughts';
+    const customPrompt = isThoughtsField
+        ? extensionSettings.customCharacterFieldThoughtsPrompt
+        : extensionSettings.customCharacterFieldPrompt;
+
+    // If custom prompt exists, use it instead of default instructions
+    if (customPrompt && customPrompt.trim()) {
+        prompt += customPrompt.trim();
+        return prompt;
+    }
+
+    // Default instructions (if no custom prompt)
     let fieldDescription = fieldConfig?.description || fieldName;
 
     // Special handling for thoughts field - use the configured description
-    if (fieldName.toLowerCase() === 'thoughts') {
+    if (isThoughtsField) {
         const thoughtsConfig = extensionSettings.trackerConfig?.presentCharacters?.thoughts;
         fieldDescription = thoughtsConfig?.description || 'Internal monologue (in first person POV, up to three sentences long)';
     }
@@ -307,7 +336,11 @@ export async function buildFieldRegenerationPrompt(characterName, fieldName, cur
 }
 
 /**
+ * @deprecated This function is no longer used. Character regeneration now uses the modular prompt builder system.
+ * The prompt builder handles LLM calls internally via builder.generate().
+ *
  * Calls the LLM to generate character data
+ * Uses Connection Manager if available, falls back to legacy methods
  * @param {string} prompt - The prompt to send
  * @param {Object} options - Optional generation parameters
  * @param {number} options.maxTokens - Max tokens for generation
@@ -315,8 +348,75 @@ export async function buildFieldRegenerationPrompt(characterName, fieldName, cur
  * @returns {Promise<string>} The LLM response
  */
 export async function callLLMForGeneration(prompt, options = {}) {
+    const context = getContext();
+
+    // Get max tokens (use override from options, then fallback to default)
+    const maxTokens = options.maxTokens || 2048;
+
+    console.log('[RPG Companion] Generation settings:', {
+        maxTokens: maxTokens,
+        stopSequences: options.stopSequences?.length || 0
+    });
+
+    // Try to use Connection Manager (same as Character Creator)
+    if (context.ConnectionManagerRequestService && context.ConnectionManagerRequestService.sendRequest) {
+        try {
+            // Get the active connection profile
+            const profiles = context.extensionSettings?.connectionManager?.profiles || [];
+            const activeProfile = profiles.find(p => p.isActive);
+
+            if (activeProfile) {
+                console.log('[RPG Companion] Using Connection Manager with profile:', activeProfile.name);
+                console.log('[RPG Companion] Max tokens:', maxTokens);
+
+                // Build messages array
+                const messages = [
+                    { role: 'system', content: 'You are a helpful assistant that generates character data for roleplaying scenarios.' },
+                    { role: 'user', content: prompt }
+                ];
+
+                // Call Connection Manager
+                const response = await context.ConnectionManagerRequestService.sendRequest(
+                    activeProfile.id,
+                    messages,
+                    maxTokens
+                );
+
+                // Extract content from response
+                if (typeof response === 'string') {
+                    return response;
+                } else if (response && response.content) {
+                    return response.content;
+                } else {
+                    throw new Error('Invalid response format from Connection Manager');
+                }
+            }
+        } catch (error) {
+            console.warn('[RPG Companion] Connection Manager failed, falling back to legacy method:', error);
+        }
+    }
+
+    // Fallback to legacy methods
+    return callLLMForGenerationLegacy(prompt, options);
+}
+
+/**
+ * Legacy LLM calling method (fallback when Connection Manager is not available)
+ * @param {string} prompt - The prompt to send
+ * @param {Object} options - Optional generation parameters
+ * @param {number} options.maxTokens - Max tokens for generation
+ * @param {Array<string>} options.stopSequences - Stop sequences
+ * @returns {Promise<string>} The LLM response
+ */
+async function callLLMForGenerationLegacy(prompt, options = {}) {
     const isExternalMode = extensionSettings.generationMode === 'external';
     const useSeparatePreset = extensionSettings.useSeparatePreset;
+    const maxTokens = options.maxTokens || 2048;
+
+    console.log('[RPG Companion] Using legacy generation method:', {
+        mode: isExternalMode ? 'external' : 'internal',
+        maxTokens: maxTokens
+    });
 
     try {
         let response;
@@ -328,7 +428,7 @@ export async function callLLMForGeneration(prompt, options = {}) {
                 { role: 'user', content: prompt }
             ];
             response = await generateWithExternalAPI(messages, {
-                maxTokens: options.maxTokens,
+                maxTokens: maxTokens,
                 stop: options.stopSequences
             });
         } else {
@@ -337,7 +437,7 @@ export async function callLLMForGeneration(prompt, options = {}) {
                 prompt: prompt,
                 use_mancer: useSeparatePreset,
                 quietToLoud: false,
-                max_length: options.maxTokens,
+                responseLength: maxTokens,
                 stop_sequence: options.stopSequences
             });
         }

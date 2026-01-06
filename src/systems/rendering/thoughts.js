@@ -1801,14 +1801,16 @@ export function createThoughtPanel($message, thoughtsArray, skipAnimation = fals
 
 /**
  * Regenerates a single character's thought from the thought bubble widget
+ * Uses the modular prompt builder system
  * @param {string} characterName - Name of the character whose thought to regenerate
  */
 async function regenerateIndividualThought(characterName) {
     try {
         toastr.info(`Regenerating thought for ${characterName}...`, 'RPG Companion');
 
-        // Import regeneration functions
-        const { buildFieldRegenerationPrompt, callLLMForGeneration, parseFieldRegenerationResponse } = await import('../ui/characterRegeneration.js');
+        // Import prompt builder
+        const { createPromptBuilder } = await import('../generation/modular-prompt-system/index.js');
+        const { parseFieldRegenerationResponse } = await import('../ui/characterRegeneration.js');
 
         // Get current character data from Present Characters
         const lines = committedTrackerData.characterThoughts?.split('\n') || [];
@@ -1835,33 +1837,26 @@ async function regenerateIndividualThought(characterName) {
             }
         }
 
-        // Get field configuration
-        const config = extensionSettings.trackerConfig?.presentCharacters;
-        const thoughtsConfig = config?.thoughts;
-        const fieldConfig = {
-            name: thoughtsConfig?.name || 'Thoughts',
-            description: thoughtsConfig?.description || 'Internal monologue (in first person POV, up to three sentences long)'
-        };
+        // Create prompt builder for thought bubble component
+        const builder = createPromptBuilder(extensionSettings, 'thoughtBubble');
 
-        // Build prompt
-        const prompt = await buildFieldRegenerationPrompt(characterName, fieldConfig.name, currentData, '', fieldConfig);
-
-        // Get field regeneration settings for thoughts
-        const fieldSettings = extensionSettings.characterFieldRegenerationSettings || {};
-        const maxTokens = fieldSettings.thoughtsMaxTokens || 150;
-        const stopSequences = fieldSettings.thoughtsStopSequences || ['\n\n', '###', 'Here is', 'I hope'];
-
-        // Call LLM
-        const response = await callLLMForGeneration(prompt, {
-            maxTokens: maxTokens,
-            stopSequences: stopSequences
+        // Inject variables into SillyTavern's variable system
+        // These will be accessible via {{getvar::variableName}} macros
+        await builder.injectVariables({
+            characterName: characterName,
+            currentThought: currentData.Thoughts || 'No previous thought',
+            currentMood: currentData.Mood || '😊',
+            currentRelationship: currentData.Relationship || 'Neutral'
         });
+
+        // Generate using the prompt builder
+        const response = await builder.generate();
 
         // Parse response
         const newThought = parseFieldRegenerationResponse(response);
 
         // Update the character's thought
-        updateCharacterField(characterName, fieldConfig.name, newThought);
+        updateCharacterField(characterName, 'Thoughts', newThought);
 
         toastr.success(`Thought regenerated for ${characterName}`, 'RPG Companion');
     } catch (error) {

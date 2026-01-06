@@ -51,6 +51,10 @@ export const defaultSettings = {
     customUserStatsPrompt: '', // Custom prompt for User Stats section (empty = use default)
     customInfoBoxPrompt: '', // Custom prompt for Info Box section (empty = use default)
     customCharacterThoughtsPrompt: '', // Custom prompt for Character Thoughts section (empty = use default)
+    // Character field regeneration custom prompts
+    customCharacterFieldPrompt: '', // Custom prompt for regular character fields (empty = use default)
+    customCharacterFieldThoughtsPrompt: '', // Custom prompt for character thoughts field (empty = use default)
+    customCharacterFullRegenPrompt: '', // Custom prompt for full character regeneration (empty = use default)
     // Per-section regeneration settings (max tokens and stop sequences)
     sectionRegenerationSettings: {
         userStats: {
@@ -72,7 +76,8 @@ export const defaultSettings = {
         maxTokens: 100, // Max tokens for field regeneration (short outputs)
         stopSequences: ['\n\n', '\n', '.', '!', '?', '"', "'", '###', 'Here is', 'I hope', 'The ', 'As ', 'Suddenly'], // Stop sequences for short field outputs
         thoughtsMaxTokens: 150, // Max tokens specifically for thoughts field (slightly longer)
-        thoughtsStopSequences: ['\n\n', '###', 'Here is', 'I hope', 'The character', 'As the'] // Stop sequences for thoughts
+        thoughtsStopSequences: ['\n\n', '###', 'Here is', 'I hope', 'The character', 'As the'], // Stop sequences for thoughts
+        fullRegenMaxTokens: 2000 // Max tokens for full character regeneration
     },
     theme: 'default', // Theme: default, sci-fi, fantasy, cyberpunk, custom
     customColors: {

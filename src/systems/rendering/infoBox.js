@@ -562,6 +562,11 @@ export function renderInfoBox() {
             }
         }, 0);
     }
+
+    // Update weather effects based on new weather data
+    if (window.RPGCompanion?.updateWeatherEffect) {
+        window.RPGCompanion.updateWeatherEffect();
+    }
 }
 
 /**
@@ -839,6 +844,11 @@ export function updateInfoBoxField(field, value) {
     // Date fields will update on next tracker generation to avoid losing user input
     if (field !== 'month' && field !== 'weekday' && field !== 'year') {
         renderInfoBox();
+    }
+
+    // Update weather effects if weather field changed
+    if (field === 'weather' && window.RPGCompanion?.updateWeatherEffect) {
+        window.RPGCompanion.updateWeatherEffect();
     }
 }
 

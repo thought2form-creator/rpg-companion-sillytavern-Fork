@@ -178,6 +178,49 @@ Should search:
 
 ---
 
+### 7. Encounter Profiles System
+**Status:** ✅ FULLY FUNCTIONAL
+
+**What Works:**
+- ✅ Profile manager modal with two-column layout
+- ✅ Create, edit, and delete custom encounter profiles
+- ✅ Six built-in presets (Combat, Social, Stealth, Chase, Investigation, Negotiation)
+- ✅ Load from preset dropdown for quick profile creation
+- ✅ Import/export profiles as JSON files
+- ✅ Profile validation (all required fields)
+- ✅ Active profile highlighting in list
+- ✅ Hover actions (edit/delete buttons)
+- ✅ Integration with settings modal (button in Advanced section)
+- ✅ Comprehensive documentation in docs/ENCOUNTER_PROFILES_GUIDE.md
+- ✅ Full styling and responsive design
+
+**Profile Fields:**
+- Profile Name (unique identifier)
+- Encounter Type (combat, social, stealth, etc.)
+- Encounter Goal (what success means)
+- Stakes Level (low/medium/high)
+- HP Represents (what the HP bar means)
+- Attacks Represent (what actions mean)
+- Statuses Represent (what status effects mean)
+- Summary Framing (how to frame summaries)
+
+**How It Works:**
+1. Profiles stored in `extensionSettings.encounterProfiles`
+2. Each profile has a unique UUID
+3. Presets defined in `encounterProfiles.js`
+4. UI in `encounterProfilesUI.js` handles all interactions
+5. Profiles can be applied to encounters to reinterpret combat mechanics
+
+**Files Added:**
+- `src/systems/features/encounterProfiles.js` - Core profile management
+- `src/systems/ui/encounterProfilesUI.js` - UI and event handlers
+- `docs/ENCOUNTER_PROFILES_GUIDE.md` - User documentation
+
+**Files Modified:**
+- `index.js` - Added import and initialization
+- `template.html` - Added modal HTML and settings button
+- `style.css` - Added profile UI styles
+
 ## 💡 IMPLEMENTATION TIPS
 
 - All regeneration functions should show loading indicators
@@ -189,5 +232,5 @@ Should search:
 
 ---
 
-Last Updated: 2026-01-01
+Last Updated: 2026-01-05
 

@@ -9,6 +9,43 @@ import { selected_group, getGroupMembers, groups } from '../../../../../../group
 import { extensionSettings, committedTrackerData } from '../../core/state.js';
 import { currentEncounter } from '../features/encounterState.js';
 import { buildInventorySummary, generateTrackerInstructions, generateTrackerExample } from './promptBuilder.js';
+import { DEFAULT_PROMPTS } from '../ui/promptsEditor.js';
+import { getActiveProfile, DEFAULT_COMBAT_PROFILE } from '../features/encounterProfiles.js';
+import { getFilteredWorldInfo } from './worldInfoFilter.js';
+
+/**
+ * Injects encounter profile variables into a prompt template
+ * @param {string} template - The prompt template with {VARIABLE} placeholders
+ * @param {Object} profile - The encounter profile (optional, defaults to active profile)
+ * @returns {string} The prompt with variables replaced
+ */
+function injectProfileVariables(template, profile = null) {
+    try {
+        // Get profile (use provided or active profile)
+        const activeProfile = profile || getActiveProfile();
+
+        // Replace all placeholder variables
+        return template
+            .replace(/{ENCOUNTER_TYPE}/g, activeProfile.ENCOUNTER_TYPE)
+            .replace(/{ENCOUNTER_GOAL}/g, activeProfile.ENCOUNTER_GOAL)
+            .replace(/{ENCOUNTER_STAKES}/g, activeProfile.ENCOUNTER_STAKES)
+            .replace(/{RESOURCE_INTERPRETATION}/g, activeProfile.RESOURCE_INTERPRETATION)
+            .replace(/{ACTION_INTERPRETATION}/g, activeProfile.ACTION_INTERPRETATION)
+            .replace(/{STATUS_INTERPRETATION}/g, activeProfile.STATUS_INTERPRETATION)
+            .replace(/{SUMMARY_FRAMING}/g, activeProfile.SUMMARY_FRAMING);
+    } catch (error) {
+        console.error('[RPG Companion] Error injecting profile variables:', error);
+        // Fallback to default combat profile
+        return template
+            .replace(/{ENCOUNTER_TYPE}/g, DEFAULT_COMBAT_PROFILE.ENCOUNTER_TYPE)
+            .replace(/{ENCOUNTER_GOAL}/g, DEFAULT_COMBAT_PROFILE.ENCOUNTER_GOAL)
+            .replace(/{ENCOUNTER_STAKES}/g, DEFAULT_COMBAT_PROFILE.ENCOUNTER_STAKES)
+            .replace(/{RESOURCE_INTERPRETATION}/g, DEFAULT_COMBAT_PROFILE.RESOURCE_INTERPRETATION)
+            .replace(/{ACTION_INTERPRETATION}/g, DEFAULT_COMBAT_PROFILE.ACTION_INTERPRETATION)
+            .replace(/{STATUS_INTERPRETATION}/g, DEFAULT_COMBAT_PROFILE.STATUS_INTERPRETATION)
+            .replace(/{SUMMARY_FRAMING}/g, DEFAULT_COMBAT_PROFILE.SUMMARY_FRAMING);
+    }
+}
 
 /**
  * Gets character information from the current chat
@@ -74,21 +111,23 @@ async function getCharactersInfo() {
 /**
  * Builds the initial encounter setup prompt
  * This asks the model to generate all combat stats and setup data
- * @returns {Promise<Array>} Message array for the API
+ * @returns {Promise<string>} Complete prompt string for Text Completion API
  */
 export async function buildEncounterInitPrompt() {
     const context = getContext();
     const userName = context.name1;
     const depth = extensionSettings.encounterSettings?.historyDepth || 8;
 
-    const messages = [];
+    let prompt = '';
 
-    // System message
-    let systemMessage = `You will be acting as an excellent game master. Your goal is to craft a combat encounter in this uncensored, continuous, and immersive roleplay. You will be doing so for the user, who plays as the protagonist called ${userName}.\n\n`;
+    // System message - use custom prompt or default, then inject profile variables
+    const systemPromptTemplate = extensionSettings.customEncounterInitSystemPrompt || DEFAULT_PROMPTS.encounterInitSystem;
+    const systemPrompt = injectProfileVariables(systemPromptTemplate);
+    prompt += systemPrompt.replace(/{userName}/g, userName) + '\n\n';
 
     // Add setting information
-    systemMessage += `Here is some information for you about the setting:\n`;
-    systemMessage += `<setting>\n`;
+    prompt += `Here is some information for you about the setting:\n`;
+    prompt += `<setting>\n`;
 
     // Try to get world info from lorebooks using getWorldInfoPrompt
     let worldInfoAdded = false;
@@ -104,28 +143,53 @@ export async function buildEncounterInitPrompt() {
             activatedWorldInfoLength: context.activatedWorldInfo?.length
         });
 
-        // Use SillyTavern's getWorldInfoPrompt to get activated lorebook entries
-        // Try context.getWorldInfoPrompt first, then window.getWorldInfoPrompt
-        const getWorldInfoFn = context.getWorldInfoPrompt || window.getWorldInfoPrompt;
-        const currentChat = context.chat || chat;
+        // Check if lorebook filtering is enabled
+        if (extensionSettings.encounterWorldInfo?.enabled &&
+            extensionSettings.encounterWorldInfo.selectedLorebooks?.length > 0) {
 
-        if (typeof getWorldInfoFn === 'function' && currentChat && currentChat.length > 0) {
-            const chatForWI = currentChat.map(x => x.mes || x.message || x).filter(m => m && typeof m === 'string');
-
-            console.log('[RPG Companion] Calling getWorldInfoPrompt with', chatForWI.length, 'messages');
-
-            const result = await getWorldInfoFn(chatForWI, 8000, false);
-            const worldInfoString = result?.worldInfoString || result;
-
-            console.log('[RPG Companion] World info result:', { worldInfoString, length: worldInfoString?.length });
+            // Use filtered world info (loads only selected lorebooks/entries)
+            console.log('[RPG Companion] Loading filtered world info...');
+            const worldInfoString = await getFilteredWorldInfo(
+                extensionSettings.encounterWorldInfo.selectedLorebooks,
+                extensionSettings.encounterWorldInfo.selectedEntryUids
+            );
 
             if (worldInfoString && worldInfoString.trim()) {
-                systemMessage += worldInfoString.trim();
+                console.log('[RPG Companion] 📋 Filtered World Info Content Being Added:');
+                console.log('---START WORLD INFO---');
+                console.log(worldInfoString.trim());
+                console.log('---END WORLD INFO---');
+                prompt += worldInfoString.trim();
                 worldInfoAdded = true;
-                console.log('[RPG Companion] ✅ Added world info from getWorldInfoPrompt');
+                console.log('[RPG Companion] ✅ Added filtered world info');
             }
         } else {
-            console.log('[RPG Companion] getWorldInfoPrompt not available or no chat');
+            // Use SillyTavern's default world info activation
+            const getWorldInfoFn = context.getWorldInfoPrompt || window.getWorldInfoPrompt;
+            const currentChat = context.chat || chat;
+
+            if (typeof getWorldInfoFn === 'function' && currentChat && currentChat.length > 0) {
+                const chatForWI = currentChat.map(x => x.mes || x.message || x).filter(m => m && typeof m === 'string');
+
+                console.log('[RPG Companion] Calling getWorldInfoPrompt with', chatForWI.length, 'messages');
+
+                const result = await getWorldInfoFn(chatForWI, 8000, false);
+                const worldInfoString = result?.worldInfoString || result;
+
+                console.log('[RPG Companion] World info result:', { worldInfoString, length: worldInfoString?.length, type: typeof worldInfoString });
+
+                if (worldInfoString && typeof worldInfoString === 'string' && worldInfoString.trim()) {
+                    console.log('[RPG Companion] 📋 World Info Content Being Added:');
+                    console.log('---START WORLD INFO---');
+                    console.log(worldInfoString.trim());
+                    console.log('---END WORLD INFO---');
+                    prompt += worldInfoString.trim();
+                    worldInfoAdded = true;
+                    console.log('[RPG Companion] ✅ Added world info from getWorldInfoPrompt');
+                }
+            } else {
+                console.log('[RPG Companion] getWorldInfoPrompt not available or no chat');
+            }
         }
     } catch (e) {
         console.warn('[RPG Companion] Failed to get world info from getWorldInfoPrompt:', e);
@@ -134,9 +198,11 @@ export async function buildEncounterInitPrompt() {
     // Fallback to activatedWorldInfo
     if (!worldInfoAdded && context.activatedWorldInfo && Array.isArray(context.activatedWorldInfo) && context.activatedWorldInfo.length > 0) {
         console.log('[RPG Companion] Using fallback activatedWorldInfo:', context.activatedWorldInfo.length, 'entries');
-        context.activatedWorldInfo.forEach((entry) => {
+        console.log('[RPG Companion] 📋 Activated World Info Entries:');
+        context.activatedWorldInfo.forEach((entry, index) => {
             if (entry && entry.content) {
-                systemMessage += `${entry.content}\n\n`;
+                console.log(`Entry ${index + 1}:`, entry.comment || entry.key || 'Unnamed', '|', entry.content.substring(0, 100) + '...');
+                prompt += `${entry.content}\n\n`;
                 worldInfoAdded = true;
             }
         });
@@ -144,45 +210,41 @@ export async function buildEncounterInitPrompt() {
 
     if (!worldInfoAdded) {
         console.warn('[RPG Companion] ⚠️ No world information available');
-        systemMessage += 'No world information available.';
+        prompt += 'No world information available.';
     }
 
-    systemMessage += `\n</setting>\n\n`;
+    prompt += `\n</setting>\n\n`;
 
     // Add character information
     const charactersInfo = await getCharactersInfo();
     if (charactersInfo) {
-        systemMessage += `Here is the information available to you about the characters participating in the fight:\n`;
-        systemMessage += `<characters>\n${charactersInfo}</characters>\n\n`;
+        prompt += `Here is the information available to you about the characters participating in the fight:\n`;
+        prompt += `<characters>\n${charactersInfo}</characters>\n\n`;
     }
 
     // Add persona information
-    systemMessage += `Here are details about the user's ${userName}:\n`;
-    systemMessage += `<persona>\n`;
+    prompt += `Here are details about the user's ${userName}:\n`;
+    prompt += `<persona>\n`;
 
     try {
         const personaText = substituteParams('{{persona}}');
         if (personaText && personaText !== '{{persona}}') {
-            systemMessage += personaText;
+            prompt += personaText;
         } else {
-            systemMessage += 'No persona information available.';
+            prompt += 'No persona information available.';
         }
     } catch (e) {
-        systemMessage += 'No persona information available.';
+        prompt += 'No persona information available.';
     }
 
-    systemMessage += `\n</persona>\n\n`;
+    prompt += `\n</persona>\n\n`;
 
     // Add chat history from before the encounter
-    systemMessage += `Here is the chat history from before the encounter started between the user and the assistant:\n`;
-    systemMessage += `<history>\n`;
-
-    messages.push({
-        role: 'system',
-        content: systemMessage
-    });
+    prompt += `Here is the chat history from before the encounter started between the user and the assistant:\n`;
+    prompt += `<history>\n`;
 
     // Add recent chat history (last X messages before encounter)
+    // Format as simple text for Text Completion API
     if (chat && chat.length > 0) {
         const recentMessages = chat.slice(-depth - 1, -1); // Exclude the last message (encounter trigger)
 
@@ -190,135 +252,71 @@ export async function buildEncounterInitPrompt() {
             const content = message.mes?.trim();
             // Skip empty messages
             if (content) {
-                messages.push({
-                    role: message.is_user ? 'user' : 'assistant',
-                    content: content
-                });
+                const speaker = message.is_user ? userName : (message.name || 'Assistant');
+                prompt += `${speaker}: ${content}\n\n`;
             }
         }
 
-        // Add the encounter trigger message
+        // Add the encounter trigger message (MOST IMPORTANT - goes last)
         const lastMessage = chat[chat.length - 1];
         if (lastMessage && lastMessage.mes?.trim()) {
             currentEncounter.encounterStartMessage = lastMessage.mes;
-            messages.push({
-                role: lastMessage.is_user ? 'user' : 'assistant',
-                content: lastMessage.mes.trim()
-            });
+            const speaker = lastMessage.is_user ? userName : (lastMessage.name || 'Assistant');
+            prompt += `${speaker}: ${lastMessage.mes.trim()}\n\n`;
         }
     }
 
-    // Build user's current stats
-    let userStatsInfo = '';
+    prompt += `</history>\n\n`;
+
+    // Build user's current stats (IMPORTANT CONTEXT - near the end)
+    prompt += `Here is some additional tracked context for the scene:\n`;
+    prompt += `<context>\n`;
 
     // Add HP and other stats from committed tracker data
     if (committedTrackerData.userStats) {
-        userStatsInfo += `${userName}'s Current Stats:\n${committedTrackerData.userStats}\n\n`;
+        prompt += `${userName}'s Current Stats:\n${committedTrackerData.userStats}\n\n`;
     }
 
     // Add skills if available
     const skillsSection = extensionSettings.trackerConfig?.userStats?.skillsSection;
     if (skillsSection?.enabled && skillsSection.customFields && skillsSection.customFields.length > 0) {
-        userStatsInfo += `${userName}'s Skills: ${skillsSection.customFields.join(', ')}\n`;
+        prompt += `${userName}'s Skills: ${skillsSection.customFields.join(', ')}\n`;
     }
 
     // Add inventory
     const inventory = extensionSettings.userStats?.inventory;
     if (inventory) {
         const inventorySummary = buildInventorySummary(inventory);
-        userStatsInfo += `${userName}'s Inventory:\n${inventorySummary}\n\n`;
+        prompt += `${userName}'s Inventory:\n${inventorySummary}\n\n`;
     }
 
     // Add classic stats/attributes
     if (extensionSettings.classicStats) {
         const stats = extensionSettings.classicStats;
-        userStatsInfo += `${userName}'s Attributes: `;
-        userStatsInfo += `STR ${stats.str}, DEX ${stats.dex}, CON ${stats.con}, INT ${stats.int}, WIS ${stats.wis}, CHA ${stats.cha}, LVL ${extensionSettings.level}\n\n`;
+        prompt += `${userName}'s Attributes: `;
+        prompt += `STR ${stats.str}, DEX ${stats.dex}, CON ${stats.con}, INT ${stats.int}, WIS ${stats.wis}, CHA ${stats.cha}, LVL ${extensionSettings.level}\n\n`;
     }
 
     // Add present characters info for party members
-    let partyInfo = '';
     if (committedTrackerData.characterThoughts) {
-        partyInfo += `Present Characters (potential party members):\n${committedTrackerData.characterThoughts}\n\n`;
+        prompt += `Present Characters (potential party members):\n${committedTrackerData.characterThoughts}\n\n`;
     }
 
-    // Close history and add combat initialization instruction
-    let initInstruction = `</history>\n\n`;
+    prompt += `</context>\n\n`;
 
-    // Wrap RPG Companion panel data in context tags
-    initInstruction += `Here is some additional tracked context for the scene:\n`;
-    initInstruction += `<context>\n`;
-    initInstruction += userStatsInfo;
-    initInstruction += partyInfo;
-    initInstruction += `</context>\n\n`;
+    prompt += `The encounter starts now.\n\n`;
 
-    initInstruction += `The combat starts now.\n\n`;
-    initInstruction += `Based on everything above, generate the initial combat state. Analyze who is in the party fighting alongside ${userName} (if anyone), and who the enemies are. Replace placeholders in [brackets] and X with actual values. Return ONLY a JSON object with the following structure:\n\n`;
-    initInstruction += `{\n`;
-    initInstruction += `  "party": [\n`;
-    initInstruction += `    {\n`;
-    initInstruction += `      "name": "${userName}",\n`;
-    initInstruction += `      "hp": X,\n`;
-    initInstruction += `      "maxHp": X,\n`;
-    initInstruction += `      "attacks": [\n`;
-    initInstruction += `        {"name": "Attack", "type": "single-target|AoE|both"},\n`;
-    initInstruction += `        {"name": "Skill1", "type": "single-target|AoE|both"}\n`;
-    initInstruction += `      ],\n`;
-    initInstruction += `      "items": ["Item1", "Item2"],\n`;
-    initInstruction += `      "statuses": [],\n`;
-    initInstruction += `      "isPlayer": true\n`;
-    initInstruction += `    }\n`;
-    initInstruction += `    // Add other party members here if they exist in the context, changing isPlayer to false for them.\n`;
-    initInstruction += `  ],\n`;
-    initInstruction += `  "enemies": [\n`;
-    initInstruction += `    {\n`;
-    initInstruction += `      "name": "Enemy Name",\n`;
-    initInstruction += `      "hp": X,\n`;
-    initInstruction += `      "maxHp": X,\n`;
-    initInstruction += `      "attacks": [\n`;
-    initInstruction += `        {"name": "Attack1", "type": "single-target|AoE|both"},\n`;
-    initInstruction += `        {"name": "Attack2", "type": "single-target|AoE|both"}\n`;
-    initInstruction += `      ],\n`;
-    initInstruction += `      "statuses": [],\n`;
-    initInstruction += `      "description": "Brief enemy description",\n`;
-    initInstruction += `      "sprite": "emoji or brief visual description"\n`;
-    initInstruction += `    }\n`;
-    initInstruction += `    // Add all enemies participating in this combat\n`;
-    initInstruction += `  ],\n`;
-    initInstruction += `  "environment": "Brief description of the combat environment",\n`;
-    initInstruction += `  "styleNotes": {\n`;
-    initInstruction += `    "environmentType": "forest|dungeon|desert|cave|city|ruins|snow|water|castle|wasteland|plains|mountains|swamp|volcanic",\n`;
-    initInstruction += `    "atmosphere": "bright|dark|foggy|stormy|calm|eerie|chaotic|peaceful",\n`;
-    initInstruction += `    "timeOfDay": "dawn|day|dusk|night|twilight",\n`;
-    initInstruction += `    "weather": "clear|rainy|snowy|windy|stormy|overcast"\n`;
-    initInstruction += `  }\n`;
-    initInstruction += `}\n\n`;
-    initInstruction += `IMPORTANT NOTES:\n`;
-    initInstruction += `- For attacks array: Each attack must be an object with "name" and "type" properties\n`;
-    initInstruction += `  - "single-target": Can only target one character (enemy or ally)\n`;
-    initInstruction += `  - "AoE": Area of Effect - targets all enemies, but some AoE attacks (like storms, explosions) can also harm allies if the attack is indiscriminate\n`;
-    initInstruction += `  - "both": Player can choose to target a single enemy OR use as AoE\n`;
-    initInstruction += `- Statuses array: May start empty, but don't have to if characters applied them before the combat\n`;
-    initInstruction += `  - Each status has a format: {"name": "Status Name", "emoji": "💀", "duration": X}\n`;
-    initInstruction += `  - Examples: Poisoned (🧪), Burning (🔥), Blessed (✨), Stunned (💫), Weakened (⬇️), Strengthened (⬆️)\n\n`;
-    initInstruction += `The styleNotes object will be used to visually style the combat window - choose ONE value from each category that best fits the environment described in the chat history.\n\n`;
-    initInstruction += `Use the user's current stats, inventory, and skills to populate the party data. For ${userName}'s attacks array, include their available skills. For items, include usable items from their inventory. Set HP based on their current Health stat if available.\n\n`;
-    initInstruction += `Ensure all party members and enemies have realistic HP values based on the setting and their descriptions. Return ONLY the JSON object, no other text.`;
+    // Use custom instructions or default, then inject profile variables (MOST IMPORTANT - at the very end)
+    const instructionsTemplate = extensionSettings.customEncounterInitInstructionsPrompt || DEFAULT_PROMPTS.encounterInitInstructions;
+    const instructionsPrompt = injectProfileVariables(instructionsTemplate);
+    prompt += instructionsPrompt.replace(/{userName}/g, userName);
 
-    // Only add the instruction if it has meaningful content
-    if (initInstruction.trim()) {
-        messages.push({
-            role: 'user',
-            content: initInstruction.trim()
-        });
-    }
-
-    // Validate that we have at least one message with content
-    if (messages.length === 0 || messages.every(m => !m.content || !m.content.trim())) {
+    // Validate that we have content
+    if (!prompt.trim()) {
         throw new Error('Unable to build encounter prompt - no valid content available');
     }
 
-    return messages;
+    return prompt;
 }
 
 /**
@@ -326,7 +324,7 @@ export async function buildEncounterInitPrompt() {
  * This is sent when the user takes an action in combat
  * @param {string} action - The action taken by the user
  * @param {object} combatStats - Current combat statistics
- * @returns {Array} Message array for the API
+ * @returns {Promise<string>} Complete prompt string for Text Completion API
  */
 export async function buildCombatActionPrompt(action, combatStats) {
     const context = getContext();
@@ -340,29 +338,48 @@ export async function buildCombatActionPrompt(action, combatStats) {
     const narration = narrativeStyle.narration || 'omniscient';
     const pov = narrativeStyle.pov || 'narrator';
 
-    const messages = [];
+    let prompt = '';
 
-    // Build system message with setting info
-    let systemMessage = `You are the game master managing this combat encounter. You must not play as ${userName} - only describe what happens as a result of their actions/dialogues and control NPCs/enemies.\n\n`;
+    // Build system message with setting info - use custom prompt or default, then inject profile variables
+    const systemPromptTemplate = extensionSettings.customCombatActionSystemPrompt || DEFAULT_PROMPTS.combatActionSystem;
+    const systemPrompt = injectProfileVariables(systemPromptTemplate);
+    prompt += systemPrompt.replace(/{userName}/g, userName) + '\n\n';
 
     // Add setting information
-    systemMessage += `Here is some information for you about the setting:\n`;
-    systemMessage += `<setting>\n`;
+    prompt += `Here is some information for you about the setting:\n`;
+    prompt += `<setting>\n`;
 
     // Get world info
     let worldInfoAdded = false;
     try {
-        const getWorldInfoFn = context.getWorldInfoPrompt || window.getWorldInfoPrompt;
-        const currentChat = context.chat || chat;
+        // Check if lorebook filtering is enabled
+        if (extensionSettings.encounterWorldInfo?.enabled &&
+            extensionSettings.encounterWorldInfo.selectedLorebooks?.length > 0) {
 
-        if (typeof getWorldInfoFn === 'function' && currentChat && currentChat.length > 0) {
-            const chatForWI = currentChat.map(x => x.mes || x.message || x).filter(m => m && typeof m === 'string');
-            const result = await getWorldInfoFn(chatForWI, 8000, false);
-            const worldInfoString = result?.worldInfoString || result;
+            // Use filtered world info
+            const worldInfoString = await getFilteredWorldInfo(
+                extensionSettings.encounterWorldInfo.selectedLorebooks,
+                extensionSettings.encounterWorldInfo.selectedEntryUids
+            );
 
             if (worldInfoString && worldInfoString.trim()) {
-                systemMessage += worldInfoString.trim();
+                prompt += worldInfoString.trim();
                 worldInfoAdded = true;
+            }
+        } else {
+            // Use SillyTavern's default world info activation
+            const getWorldInfoFn = context.getWorldInfoPrompt || window.getWorldInfoPrompt;
+            const currentChat = context.chat || chat;
+
+            if (typeof getWorldInfoFn === 'function' && currentChat && currentChat.length > 0) {
+                const chatForWI = currentChat.map(x => x.mes || x.message || x).filter(m => m && typeof m === 'string');
+                const result = await getWorldInfoFn(chatForWI, 8000, false);
+                const worldInfoString = result?.worldInfoString || result;
+
+                if (worldInfoString && typeof worldInfoString === 'string' && worldInfoString.trim()) {
+                    prompt += worldInfoString.trim();
+                    worldInfoAdded = true;
+                }
             }
         }
     } catch (e) {
@@ -372,63 +389,59 @@ export async function buildCombatActionPrompt(action, combatStats) {
     if (!worldInfoAdded && context.activatedWorldInfo && Array.isArray(context.activatedWorldInfo) && context.activatedWorldInfo.length > 0) {
         context.activatedWorldInfo.forEach((entry) => {
             if (entry && entry.content) {
-                systemMessage += `${entry.content}\n\n`;
+                prompt += `${entry.content}\n\n`;
                 worldInfoAdded = true;
             }
         });
     }
 
     if (!worldInfoAdded) {
-        systemMessage += 'No world information available.';
+        prompt += 'No world information available.';
     }
 
-    systemMessage += `\n</setting>\n\n`;
+    prompt += `\n</setting>\n\n`;
 
     // Add character information
     const charactersInfo = await getCharactersInfo();
     if (charactersInfo) {
-        systemMessage += `Here is the information available to you about the characters:\n`;
-        systemMessage += `<characters>\n${charactersInfo}</characters>\n\n`;
+        prompt += `Here is the information available to you about the characters:\n`;
+        prompt += `<characters>\n${charactersInfo}</characters>\n\n`;
     }
 
     // Add persona info
     if (context.name1) {
-        systemMessage += `The protagonist is:\n`;
-        systemMessage += `<persona>\n`;
+        prompt += `The protagonist is:\n`;
+        prompt += `<persona>\n`;
 
         // Use substituteParams to get {{persona}} like in initial encounter
         try {
             const personaText = substituteParams('{{persona}}');
             if (personaText && personaText !== '{{persona}}') {
-                systemMessage += personaText;
+                prompt += personaText;
             } else {
-                systemMessage += `Name: ${context.name1}\n`;
+                prompt += `Name: ${context.name1}\n`;
                 if (extensionSettings.userStats?.personaDescription) {
-                    systemMessage += `${extensionSettings.userStats.personaDescription}\n`;
+                    prompt += `${extensionSettings.userStats.personaDescription}\n`;
                 }
             }
         } catch (e) {
-            systemMessage += `Name: ${context.name1}\n`;
+            prompt += `Name: ${context.name1}\n`;
             if (extensionSettings.userStats?.personaDescription) {
-                systemMessage += `${extensionSettings.userStats.personaDescription}\n`;
+                prompt += `${extensionSettings.userStats.personaDescription}\n`;
             }
         }
 
         // Add ONLY classic stats/attributes if enabled
         if (extensionSettings.classicStats) {
             const stats = extensionSettings.classicStats;
-            systemMessage += `\nAttributes: STR ${stats.str}, DEX ${stats.dex}, CON ${stats.con}, INT ${stats.int}, WIS ${stats.wis}, CHA ${stats.cha}, LVL ${extensionSettings.level}\n`;
+            prompt += `\nAttributes: STR ${stats.str}, DEX ${stats.dex}, CON ${stats.con}, INT ${stats.int}, WIS ${stats.wis}, CHA ${stats.cha}, LVL ${extensionSettings.level}\n`;
         }
 
-        systemMessage += `</persona>\n\n`;
+        prompt += `</persona>\n\n`;
     }
 
-    messages.push({
-        role: 'system',
-        content: systemMessage
-    });
-
-    // Add recent chat history for context - append as user/assistant messages like initial encounter
+    // Add recent chat history for context (formatted as text)
+    prompt += `<history>\n`;
     const currentChat = context.chat || chat;
     if (currentChat && currentChat.length > 0) {
         const recentMessages = currentChat.slice(-depth);
@@ -437,101 +450,99 @@ export async function buildCombatActionPrompt(action, combatStats) {
             const content = message.mes?.trim();
             // Skip empty messages
             if (content) {
-                messages.push({
-                    role: message.is_user ? 'user' : 'assistant',
-                    content: content
-                });
+                const speaker = message.is_user ? userName : (message.name || 'Assistant');
+                prompt += `${speaker}: ${content}\n\n`;
             }
         }
     }
+    prompt += `</history>\n\n`;
 
     // Add combat log as plain text (previous actions)
     if (currentEncounter.encounterLog && currentEncounter.encounterLog.length > 0) {
-        let combatHistory = 'Previous Combat Actions:\n';
+        prompt += 'Previous Combat Actions:\n';
         currentEncounter.encounterLog.forEach(entry => {
-            combatHistory += `- ${entry.action}\n`;
+            prompt += `- ${entry.action}\n`;
             if (entry.result) {
-                combatHistory += `  ${entry.result}\n`;
+                prompt += `  ${entry.result}\n`;
             }
         });
-
-        messages.push({
-            role: 'user',
-            content: combatHistory
-        });
+        prompt += '\n';
     }
 
-    // Add current combat state with FULL information (but tell AI not to regenerate static parts)
-    let stateMessage = `Current Combat State:\n`;
-    stateMessage += `Environment: ${combatStats.environment || 'Unknown location'}\n\n`;
+    // Add current combat state with FULL information (MOST IMPORTANT - at the end)
+    prompt += `Current Combat State:\n`;
+    prompt += `Environment: ${combatStats.environment || 'Unknown location'}\n\n`;
 
-    stateMessage += `Party Members:\n`;
+    prompt += `Party Members:\n`;
     combatStats.party.forEach(member => {
-        stateMessage += `- ${member.name}${member.isPlayer ? ' (Player)' : ''}: ${member.hp}/${member.maxHp} HP\n`;
+        prompt += `- ${member.name}${member.isPlayer ? ' (Player)' : ''}: ${member.hp}/${member.maxHp} HP\n`;
+        if (member.customBars && member.customBars.length > 0) {
+            member.customBars.forEach(bar => {
+                prompt += `  ${bar.name}: ${bar.current}/${bar.max}\n`;
+            });
+        }
         if (member.attacks && member.attacks.length > 0) {
-            stateMessage += `  Attacks: ${member.attacks.map(a => typeof a === 'string' ? a : a.name).join(', ')}\n`;
+            prompt += `  Attacks: ${member.attacks.map(a => typeof a === 'string' ? a : a.name).join(', ')}\n`;
         }
         if (member.items && member.items.length > 0) {
-            stateMessage += `  Items: ${member.items.join(', ')}\n`;
+            prompt += `  Items: ${member.items.join(', ')}\n`;
         }
         if (member.statuses && member.statuses.length > 0) {
             const validStatuses = member.statuses.filter(s => s && (s.emoji || s.name));
             if (validStatuses.length > 0) {
-                stateMessage += `  Status Effects: ${validStatuses.map(s => `${s.emoji || ''} ${s.name || ''}`.trim()).join(', ')}\n`;
+                prompt += `  Status Effects: ${validStatuses.map(s => `${s.emoji || ''} ${s.name || ''}`.trim()).join(', ')}\n`;
             }
         }
     });
 
-    stateMessage += `\nEnemies:\n`;
+    prompt += `\nEnemies:\n`;
     combatStats.enemies.forEach(enemy => {
-        stateMessage += `- ${enemy.name} (${enemy.sprite || ''}): ${enemy.hp}/${enemy.maxHp} HP\n`;
+        prompt += `- ${enemy.name} (${enemy.sprite || ''}): ${enemy.hp}/${enemy.maxHp} HP\n`;
         if (enemy.description) {
-            stateMessage += `  ${enemy.description}\n`;
+            prompt += `  ${enemy.description}\n`;
+        }
+        if (enemy.customBars && enemy.customBars.length > 0) {
+            enemy.customBars.forEach(bar => {
+                prompt += `  ${bar.name}: ${bar.current}/${bar.max}\n`;
+            });
         }
         if (enemy.attacks && enemy.attacks.length > 0) {
-            stateMessage += `  Attacks: ${enemy.attacks.map(a => typeof a === 'string' ? a : a.name).join(', ')}\n`;
+            prompt += `  Attacks: ${enemy.attacks.map(a => typeof a === 'string' ? a : a.name).join(', ')}\n`;
         }
         if (enemy.statuses && enemy.statuses.length > 0) {
             const validStatuses = enemy.statuses.filter(s => s && (s.emoji || s.name));
             if (validStatuses.length > 0) {
-                stateMessage += `  Status Effects: ${validStatuses.map(s => `${s.emoji || ''} ${s.name || ''}`.trim()).join(', ')}\n`;
+                prompt += `  Status Effects: ${validStatuses.map(s => `${s.emoji || ''} ${s.name || ''}`.trim()).join(', ')}\n`;
             }
         }
     });
 
-    stateMessage += `\n${userName}'s Action: ${action}\n\n`;
-    stateMessage += `Respond with a JSON object containing ONLY updated HP values and new status effects. DO NOT regenerate character descriptions, sprites, or environment:\n`;
-    stateMessage += `{\n`;
-    stateMessage += `  "combatStats": {\n`;
-    stateMessage += `    "party": [{ "name": "Name", "hp": X, "maxHp": X, "statuses": [...] }],\n`;
-    stateMessage += `    "enemies": [{ "name": "Name", "hp": X, "maxHp": X, "statuses": [...] }]\n`;
-    stateMessage += `  },\n`;
-    stateMessage += `  "enemyActions": [{ "enemyName": "Name", "action": "what they do", "target": "target" }],\n`;
-    stateMessage += `  "partyActions": [{ "memberName": "Name", "action": "what they do", "target": "target" }],\n`;
-    stateMessage += `  "narrative": "The roleplay description of what happens"\n`;
-    stateMessage += `}\n\n`;
-    stateMessage += `If all enemies are defeated or escape: add "combatEnd": true, "result": "victory". If all party defeated: add "combatEnd": true, "result": "defeat". It's also possible for the encounter to be interrupted by external interference (e.g., an explosion knocks everyone out, sudden environmental catastrophe, third party intervention, etc.). If this occurs, add "combatEnd": true, "result": "interrupted". Each status (if applied) has a format: {"name": "Status Name", "emoji": "💀", "duration": X}.\n`;
-    stateMessage += `Scale combat difficulty appropriately: Powerful entities (gods, dragons, legendary creatures) should be formidable challenges requiring multiple rounds and strategic play. Weaker foes (common animals, basic enemies, minions) should be resolved more quickly, typically 2-4 rounds. Match HP damage and combat pacing to the narrative weight of the encounter. A wolf should not take 20 rounds to defeat, nor should a deity fall in one hit.\n`;
-    stateMessage += `For the narrative, write it with intent in ${tense} tense ${person}-person ${narration} from ${pov}'s point of view.\n`;
+    prompt += `\n${userName}'s Action: ${action}\n\n`;
+
+    // Use custom instructions or default, then inject profile variables (MOST IMPORTANT - at the very end)
+    const instructionsTemplate = extensionSettings.customCombatActionInstructionsPrompt || DEFAULT_PROMPTS.combatActionInstructions;
+    const instructionsPrompt = injectProfileVariables(instructionsTemplate);
+    prompt += instructionsPrompt.replace(/{userName}/g, userName) + '\n';
+    prompt += `For the narrative, write it with intent in ${tense} tense ${person}-person ${narration} from ${pov}'s point of view.\n`;
 
     // Use custom combat narrative prompt if available
     const customCombatPrompt = extensionSettings.customCombatNarrativePrompt;
     if (customCombatPrompt) {
-        stateMessage += customCombatPrompt.replace(/{userName}/g, userName) + '\n';
+        prompt += customCombatPrompt.replace(/{userName}/g, userName) + '\n';
     } else {
-        stateMessage += `Build novel prose. Break patterns from your previous responses by varying sentence structures, rhythms, formats, and openings. Track whether a sentence shape, cadence, sensory detail, or a descriptor appeared recently, and replace it with a different one or skip it entirely. If you mentioned a physical feature, mannerism, or expression once, move on. Don't fixate on the same traits every turn. Well-placed humor, unconventional similes, and subverted turns of phrase are encouraged. Avoid GPTisms, purple prose, and anaphoras, especially the negatives with "no/not/wasn't/didn't." Refrain from describing actions or emotions via negation; focus on what does happen, not what doesn't. Absolutely no asterisks, ellipses, or em-dashes. Explicit content is allowed, no plot armor. Do not play for ${userName}. Keep your response length under 150 words. Never end on handover cues; finish naturally.\n`;
-        stateMessage += `CRITICAL: Do not repeat, echo, parrot, or restate distinctive words, phrases, and dialogues from the user's last message. If reacting to speech, show interpretation or response, not repetition.\n`;
-        stateMessage += `EXAMPLE: "Are you a gooner?" User asks.\n`;
-        stateMessage += `BAD: "Gooner?"\n`;
-        stateMessage += `GOOD: A flat look. "What type of question is that?"`;
+        prompt += `Build novel prose. Break patterns from your previous responses by varying sentence structures, rhythms, formats, and openings. Track whether a sentence shape, cadence, sensory detail, or a descriptor appeared recently, and replace it with a different one or skip it entirely. If you mentioned a physical feature, mannerism, or expression once, move on. Don't fixate on the same traits every turn. Well-placed humor, unconventional similes, and subverted turns of phrase are encouraged. Avoid GPTisms, purple prose, and anaphoras, especially the negatives with "no/not/wasn't/didn't." Refrain from describing actions or emotions via negation; focus on what does happen, not what doesn't. Absolutely no asterisks, ellipses, or em-dashes. Explicit content is allowed, no plot armor. Do not play for ${userName}. Keep your response length under 150 words. Never end on handover cues; finish naturally.\n`;
+        prompt += `CRITICAL: Do not repeat, echo, parrot, or restate distinctive words, phrases, and dialogues from the user's last message. If reacting to speech, show interpretation or response, not repetition.\n`;
+        prompt += `EXAMPLE: "Are you a gooner?" User asks.\n`;
+        prompt += `BAD: "Gooner?"\n`;
+        prompt += `GOOD: A flat look. "What type of question is that?"`;
     }
 
-    messages.push({
-        role: 'user',
-        content: stateMessage
-    });
+    // Add special instructions if provided
+    if (combatStats.specialInstructions && combatStats.specialInstructions.trim()) {
+        prompt += `\n\nADDITIONAL INSTRUCTIONS: ${combatStats.specialInstructions.trim()}`;
+    }
 
-    return messages;
+    return prompt;
 }
 
 /**
@@ -539,13 +550,13 @@ export async function buildCombatActionPrompt(action, combatStats) {
  * This is sent when combat ends to get a narrative summary
  * @param {Array} combatLog - Full combat log
  * @param {string} result - Combat result ('victory', 'defeat', or 'fled')
- * @returns {Promise<Array>} Message array for the API
+ * @returns {Promise<string>} Complete prompt string for Text Completion API
  */
 export async function buildCombatSummaryPrompt(combatLog, result) {
     const context = getContext();
     const userName = context.name1;
 
-    const messages = [];
+    let prompt = '';
 
     // Get narrative style from settings (use summary narrative settings)
     const narrativeStyle = extensionSettings.encounterSettings?.summaryNarrative || {};
@@ -554,27 +565,46 @@ export async function buildCombatSummaryPrompt(combatLog, result) {
     const narration = narrativeStyle.narration || 'omniscient';
     const pov = narrativeStyle.pov || 'narrator';
 
-    // Build system message with setting info
-    let systemMessage = `You are summarizing a combat encounter that just concluded.\n\n`;
+    // Build system message with setting info - use custom prompt or default, then inject profile variables
+    const systemPromptTemplate = extensionSettings.customCombatSummarySystemPrompt || DEFAULT_PROMPTS.combatSummarySystem;
+    const systemPrompt = injectProfileVariables(systemPromptTemplate);
+    prompt += systemPrompt + '\n\n';
 
     // Add setting information
-    systemMessage += `Here is some information for you about the setting:\n`;
-    systemMessage += `<setting>\n`;
+    prompt += `Here is some information for you about the setting:\n`;
+    prompt += `<setting>\n`;
 
     // Get world info using the same method as encounter init
     let worldInfoAdded = false;
     try {
-        const getWorldInfoFn = context.getWorldInfoPrompt || window.getWorldInfoPrompt;
-        const currentChat = context.chat || chat;
+        // Check if lorebook filtering is enabled
+        if (extensionSettings.encounterWorldInfo?.enabled &&
+            extensionSettings.encounterWorldInfo.selectedLorebooks?.length > 0) {
 
-        if (typeof getWorldInfoFn === 'function' && currentChat && currentChat.length > 0) {
-            const chatForWI = currentChat.map(x => x.mes || x.message || x).filter(m => m && typeof m === 'string');
-            const result = await getWorldInfoFn(chatForWI, 8000, false);
-            const worldInfoString = result?.worldInfoString || result;
+            // Use filtered world info
+            const worldInfoString = await getFilteredWorldInfo(
+                extensionSettings.encounterWorldInfo.selectedLorebooks,
+                extensionSettings.encounterWorldInfo.selectedEntryUids
+            );
 
             if (worldInfoString && worldInfoString.trim()) {
-                systemMessage += worldInfoString.trim();
+                prompt += worldInfoString.trim();
                 worldInfoAdded = true;
+            }
+        } else {
+            // Use SillyTavern's default world info activation
+            const getWorldInfoFn = context.getWorldInfoPrompt || window.getWorldInfoPrompt;
+            const currentChat = context.chat || chat;
+
+            if (typeof getWorldInfoFn === 'function' && currentChat && currentChat.length > 0) {
+                const chatForWI = currentChat.map(x => x.mes || x.message || x).filter(m => m && typeof m === 'string');
+                const result = await getWorldInfoFn(chatForWI, 8000, false);
+                const worldInfoString = result?.worldInfoString || result;
+
+                if (worldInfoString && typeof worldInfoString === 'string' && worldInfoString.trim()) {
+                    prompt += worldInfoString.trim();
+                    worldInfoAdded = true;
+                }
             }
         }
     } catch (e) {
@@ -585,109 +615,102 @@ export async function buildCombatSummaryPrompt(combatLog, result) {
     if (!worldInfoAdded && context.activatedWorldInfo && Array.isArray(context.activatedWorldInfo) && context.activatedWorldInfo.length > 0) {
         context.activatedWorldInfo.forEach((entry) => {
             if (entry && entry.content) {
-                systemMessage += `${entry.content}\n\n`;
+                prompt += `${entry.content}\n\n`;
                 worldInfoAdded = true;
             }
         });
     }
 
     if (!worldInfoAdded) {
-        systemMessage += 'No world information available.';
+        prompt += 'No world information available.';
     }
 
-    systemMessage += `\n</setting>\n\n`;
+    prompt += `\n</setting>\n\n`;
 
     // Add character information
     const charactersInfo = await getCharactersInfo();
     if (charactersInfo) {
-        systemMessage += `Here is the information available to you about the characters:\n`;
-        systemMessage += `<characters>\n${charactersInfo}</characters>\n\n`;
+        prompt += `Here is the information available to you about the characters:\n`;
+        prompt += `<characters>\n${charactersInfo}</characters>\n\n`;
     }
 
     // Add persona information
-    systemMessage += `Here are details about ${userName}:\n`;
-    systemMessage += `<persona>\n`;
+    prompt += `Here are details about ${userName}:\n`;
+    prompt += `<persona>\n`;
 
     try {
         const personaText = substituteParams('{{persona}}');
         if (personaText && personaText !== '{{persona}}') {
-            systemMessage += personaText;
+            prompt += personaText;
         } else {
-            systemMessage += 'No persona information available.';
+            prompt += 'No persona information available.';
         }
     } catch (e) {
-        systemMessage += 'No persona information available.';
+        prompt += 'No persona information available.';
     }
 
-    systemMessage += `\n</persona>\n\n`;
+    prompt += `\n</persona>\n\n`;
 
     // Add the message that triggered the encounter
     if (currentEncounter.encounterStartMessage) {
-        systemMessage += `Here is the last message before combat started:\n`;
-        systemMessage += `<trigger>\n${currentEncounter.encounterStartMessage}\n</trigger>\n\n`;
+        prompt += `Here is the last message before combat started:\n`;
+        prompt += `<trigger>\n${currentEncounter.encounterStartMessage}\n</trigger>\n\n`;
     }
 
-    messages.push({
-        role: 'system',
-        content: systemMessage
-    });
-
-    let summaryMessage = `Combat has ended with result: ${result}\n\n`;
-    summaryMessage += `Full Combat Log:\n`;
+    prompt += `Combat has ended with result: ${result}\n\n`;
+    prompt += `Full Combat Log:\n`;
 
     combatLog.forEach((entry, index) => {
-        summaryMessage += `\nRound ${index + 1}:\n`;
-        summaryMessage += `${entry.action}\n`;
-        summaryMessage += `${entry.result}\n`;
+        prompt += `\nRound ${index + 1}:\n`;
+        prompt += `${entry.action}\n`;
+        prompt += `${entry.result}\n`;
     });
 
-    summaryMessage += `\n\nProvide a narrative summary of the entire fight in a way that fits the style from the chat history. Start with [FIGHT CONCLUDED] on the first line, then provide the description.\n\n`;
-    summaryMessage += `Write with intent in ${tense} tense ${person}-person ${narration} from ${pov}'s point of view.\n`;
-    summaryMessage += `Build novel prose. Break patterns from your previous responses by varying sentence structures, rhythms, formats, and openings. If you last started with a narration, begin this one with dialogue; if with an action, switch to an internal thought. Track whether a sentence shape, cadence, sensory detail, or a descriptor appeared recently, and replace it with a different one or skip it entirely. If you mentioned a physical feature, mannerism, or expression once, move on. Don't fixate on the same traits every turn. Well-placed humor, unconventional similes, and subverted turns of phrase are encouraged. Avoid GPTisms, purple prose, and anaphoras, especially the negatives with "no/not/wasn't/didn't." Refrain from describing actions or emotions via negation; focus on what does happen, not what doesn't. Minimize asterisks, ellipses, and em-dashes. Explicit content is allowed. Never end on handover cues; finish naturally.\n\n`;
-    summaryMessage += `Express ${userName}'s actions and dialogue using indirect speech (e.g., "${userName} swung their sword" or "${userName} asked for help"). The summary should be 2-4 paragraphs and capture the essence of the battle.\n\n`;
+    prompt += `\n\n`;
+
+    // Use custom instructions or default, then inject profile variables (MOST IMPORTANT - at the end)
+    const instructionsTemplate = extensionSettings.customCombatSummaryInstructionsPrompt || DEFAULT_PROMPTS.combatSummaryInstructions;
+    const instructionsPrompt = injectProfileVariables(instructionsTemplate);
+    prompt += instructionsPrompt.replace(/{userName}/g, userName) + '\n';
+    prompt += `Write with intent in ${tense} tense ${person}-person ${narration} from ${pov}'s point of view.\n\n`;
 
     // If in Together mode and trackers are enabled, add tracker update instructions
     if (extensionSettings.generationMode === 'together' && (extensionSettings.showUserStats || extensionSettings.showInfoBox || extensionSettings.showCharacterThoughts)) {
-        summaryMessage += `\n--- TRACKER UPDATE ---\n\n`;
-        summaryMessage += `After the [FIGHT CONCLUDED] summary, update the RPG trackers to reflect ${userName}'s state AFTER the combat encounter. `;
-        summaryMessage += `Account for any injuries sustained, resources used, emotional state changes, or other consequences of the battle.\n\n`;
+        prompt += `\n--- TRACKER UPDATE ---\n\n`;
+        prompt += `After the [FIGHT CONCLUDED] summary, update the RPG trackers to reflect ${userName}'s state AFTER the combat encounter. `;
+        prompt += `Account for any injuries sustained, resources used, emotional state changes, or other consequences of the battle.\n\n`;
 
         // Include pre-combat tracker state if available
         if (committedTrackerData.userStats || committedTrackerData.infoBox || committedTrackerData.characterThoughts) {
-            summaryMessage += `Pre-combat tracker state:\n`;
-            summaryMessage += `<previous>\n`;
+            prompt += `Pre-combat tracker state:\n`;
+            prompt += `<previous>\n`;
 
             if (committedTrackerData.userStats) {
-                summaryMessage += `${userName}'s Stats:\n${committedTrackerData.userStats}\n\n`;
+                prompt += `${userName}'s Stats:\n${committedTrackerData.userStats}\n\n`;
             }
 
             if (committedTrackerData.infoBox) {
-                summaryMessage += `Info Box:\n${committedTrackerData.infoBox}\n\n`;
+                prompt += `Info Box:\n${committedTrackerData.infoBox}\n\n`;
             }
 
             if (committedTrackerData.characterThoughts) {
-                summaryMessage += `Present Characters:\n${committedTrackerData.characterThoughts}\n\n`;
+                prompt += `Present Characters:\n${committedTrackerData.characterThoughts}\n\n`;
             }
 
-            summaryMessage += `</previous>\n\n`;
+            prompt += `</previous>\n\n`;
         }
 
         // Add tracker instructions and example
         const trackerInstructions = generateTrackerInstructions(false, false, true);
-        summaryMessage += trackerInstructions;
+        prompt += trackerInstructions;
 
         const trackerExample = generateTrackerExample();
         if (trackerExample) {
-            summaryMessage += `\n${trackerExample}`;
+            prompt += `\n${trackerExample}`;
         }
     }
 
-    messages.push({
-        role: 'user',
-        content: summaryMessage
-    });
-
-    return messages;
+    return prompt;
 }
 
 /**
@@ -718,4 +741,25 @@ export function parseEncounterJSON(response) {
         console.error('[RPG Companion] Response was:', response);
         return null;
     }
+}
+
+/**
+ * Parses a combat action response and returns the result
+ * @param {string} response - The AI response
+ * @returns {object|null} Parsed result with narrative and other data
+ */
+export function parseCombatActionResponse(response) {
+    const result = parseEncounterJSON(response);
+    if (!result) {
+        return null;
+    }
+
+    return {
+        narrative: result.narrative || '',
+        combatStats: result.combatStats || null,
+        enemyActions: result.enemyActions || [],
+        partyActions: result.partyActions || [],
+        combatEnd: result.combatEnd || false,
+        result: result.result || null
+    };
 }

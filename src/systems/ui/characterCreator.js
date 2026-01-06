@@ -618,7 +618,7 @@ export async function callLLMForCreationLegacy(prompt, options = {}) {
                 prompt: prompt,
                 use_mancer: useSeparatePreset,
                 quietToLoud: false,
-                max_length: maxTokens,
+                responseLength: maxTokens,
                 stop_sequence: options.stopSequences
             });
         }
